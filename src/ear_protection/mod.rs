@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Bluetooth ear protection: lowers system volume during Bluetooth HFP profile switch
 //! to reduce pop/click sounds on Bluetooth headsets (AirPods, etc.).
 //! Uses pactl to control PulseAudio/PipeWire volume.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 //! Smart AI refinement via FrogScribe backend API (Bedrock Claude Haiku).
 //! Authenticated with Midway cookies from ~/.midway/cookie.

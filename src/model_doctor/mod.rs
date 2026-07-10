@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 //! Model health check: detects corrupted, truncated, or incomplete model downloads.
 //! Repairs by deleting bad files so next load triggers a clean re-download.

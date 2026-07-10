@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 //! Custom Vocabulary management: add/remove terms, import/export files, validation.
 

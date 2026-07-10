@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Automatic Transcription: detects when another app activates the microphone,
 //! starts recording, and uses energy-based VAD to auto-stop on silence.
 

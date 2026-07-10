@@ -3,7 +3,7 @@ Version:        0.1.8
 Release:        1%{?dist}
 Summary:        Voice dictation for Linux GNOME — press a hotkey, speak, text appears at cursor
 
-License:        MIT
+License:        Apache-2.0
 URL:            https://github.com/awslabs/frogscribe
 Source0:        frogscribe-%{version}.tar.gz
 

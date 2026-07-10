@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 use gtk3::prelude::*;
 use gtk3::{self, Application, ApplicationWindow, Box as GtkBox, Button, ComboBoxText, Label, Notebook, Orientation, ProgressBar, RadioButton};
 use std::cell::RefCell;
