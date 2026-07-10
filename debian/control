@@ -1,0 +1,44 @@
+Source: wisp
+Section: utils
+Priority: optional
+Maintainer: Tom Callaway <spotaws@amazon.com>
+Build-Depends: debhelper (>= 13),
+               rustc (>= 1.85),
+               cargo (>= 1.85),
+               libclang-dev,
+               libgtk-3-dev,
+               libayatana-appindicator3-dev,
+               libssl-dev,
+               libpango1.0-dev,
+               libgdk-pixbuf-2.0-dev,
+               libcairo2-dev,
+               libglib2.0-dev,
+               libatk1.0-dev,
+               libgtk-layer-shell-dev,
+               libopenblas-dev,
+               libvulkan-dev,
+               glslang-tools,
+               glslc,
+               cmake
+Standards-Version: 4.6.2
+Homepage: https://wiki.amazon.com/bin/view/Wisp_Voice
+
+Package: wisp
+Architecture: amd64
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         pulseaudio-utils,
+         ydotool,
+         ydotoold,
+         ffmpeg,
+         libnotify-bin,
+         libgtk-layer-shell0,
+         gnome-shell (>= 45)
+Recommends: python3-pyannote.audio
+Description: Voice dictation for Linux GNOME
+ Wisp is a voice dictation application for Linux GNOME desktops.
+ Press a global hotkey, speak, and your words are transcribed using
+ on-device AI (whisper.cpp) and inserted at the cursor position.
+ Features include hold-to-talk, streaming live preview, long-form
+ dictation, automatic transcription, text refinement, speaker
+ diarization, and a GNOME Shell extension panel indicator.

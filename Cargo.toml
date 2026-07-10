@@ -1,0 +1,65 @@
+[package]
+name = "frogscribe"
+version = "0.1.8"
+edition = "2021"
+description = "Voice dictation for Linux GNOME — press a hotkey, speak, and text is inserted at the cursor"
+license = "MIT"
+authors = ["FrogScribe Contributors"]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.37", features = ["full"] }
+
+# Transcription (whisper.cpp bindings)
+whisper-rs = { version = "0.16", features = ["openblas", "vulkan"] }
+
+# Input device monitoring (hotkeys, hold-to-talk)
+evdev = { version = "0.12", features = ["tokio"] }
+
+# System tray and UI (GTK3)
+gtk3 = { package = "gtk", version = "0.18" }
+glib = "0.18"
+
+# D-Bus IPC
+zbus = "4"
+
+# Settings persistence
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Config/data directories
+dirs = "5"
+
+# HTTP client for model downloads
+reqwest = { version = "0.12", features = ["stream", "json"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1"
+
+# Regex for text refinement
+regex = "1"
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# Clipboard
+arboard = "3"
+
+# Notify for config file watching
+notify = "6"
+
+# SHA256 for model integrity
+sha2 = "0.10"
+
+# Futures utilities
+futures = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

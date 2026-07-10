@@ -1,0 +1,43 @@
+wisp (0.1.7-1) unstable; urgency=medium
+
+  * Window picker rendered in compositor with Clutter.Clone
+  * Colored text in color selector
+  * Renamed Streaming setting to "Streaming (Live Preview)"
+  * Fixed ydotool text insertion
+  * Removed old AppIndicator tray
+
+ -- Tom Callaway <spotaws@amazon.com>  Tue, 30 Jun 2026 11:08:00 -0400
+
+wisp (0.1.6-1) unstable; urgency=medium
+
+  * Window picker with live window thumbnails
+  * Fix ydotool text insertion (use ydotool type)
+  * Remove duplicate AppIndicator tray
+  * Mic status display in onboarding with unmute button
+  * udev rules for /dev/uinput, ydotoold service setup
+  * Live preview tabbed singleton window
+
+ -- Tom Callaway <spotaws@amazon.com>  Thu, 18 Jun 2026 14:13:00 -0400
+
+wisp (0.1.5-1) unstable; urgency=medium
+
+  * Window picker for paste target selection
+  * Auto-transcription with mic activity detection and VAD
+  * Auto-save transcriptions with context headers
+  * Live preview: tabbed singleton window, sliding window fix for repetition
+  * Pill indicator moved to GNOME Shell extension (always on top)
+  * Model download UI in settings
+  * Streaming live preview improvements (scroll, save button)
+
+ -- Tom Callaway <spotaws@amazon.com>  Tue, 17 Jun 2026 18:40:00 -0400
+
+wisp (0.1.4-1) unstable; urgency=medium
+
+  * Initial Debian package
+  * Voice dictation with on-device AI (whisper.cpp)
+  * GNOME Shell extension for panel indicator and recording overlays
+  * Streaming live preview, long-form dictation, auto-transcription
+  * Window picker for paste target selection
+  * OpenBLAS and Vulkan acceleration
+
+ -- Tom Callaway <spotaws@amazon.com>  Tue, 16 Jun 2026 15:50:00 -0400

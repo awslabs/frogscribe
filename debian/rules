@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+export BLAS_INCLUDE_DIRS = /usr/include/x86_64-linux-gnu/openblas-pthread
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	cargo build --release
+
+override_dh_auto_install:
+	install -Dm755 target/release/wisp debian/wisp/usr/bin/wisp
+	install -Dm644 resources/wisp.desktop debian/wisp/usr/share/applications/wisp.desktop
+	install -Dm644 resources/wisp-48.png debian/wisp/usr/share/icons/hicolor/48x48/apps/wisp.png
+	install -Dm644 resources/wisp-128.png debian/wisp/usr/share/icons/hicolor/128x128/apps/wisp.png
+	install -Dm644 gnome-extension/metadata.json debian/wisp/usr/share/gnome-shell/extensions/wisp@wisp.app/metadata.json
+	install -Dm644 gnome-extension/extension.js debian/wisp/usr/share/gnome-shell/extensions/wisp@wisp.app/extension.js
+	install -Dm644 gnome-extension/stylesheet.css debian/wisp/usr/share/gnome-shell/extensions/wisp@wisp.app/stylesheet.css
+	install -Dm644 resources/wisp-symbolic.svg debian/wisp/usr/share/gnome-shell/extensions/wisp@wisp.app/wisp-symbolic.svg
+	install -Dm644 resources/ydotool-socket-perms.conf debian/wisp/usr/lib/systemd/system/ydotool.service.d/socket-perms.conf
+	install -Dm644 resources/ydotoold.service debian/wisp/usr/share/wisp/ydotoold.service
+	install -Dm644 resources/80-uinput.rules debian/wisp/etc/udev/rules.d/80-uinput.rules
+
+override_dh_auto_test:
+	cargo test
