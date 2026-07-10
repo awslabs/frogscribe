@@ -124,6 +124,7 @@ activation_method = "Toggle"  # or "HoldToTalk"
 [audio]
 office_mode = false
 sample_rate = 16000
+capture_desktop_audio = false  # mix speaker output with mic for meetings
 
 [transcription]
 model = "base"
@@ -144,6 +145,9 @@ accent_color = "teal"     # teal, blue, purple, pink, orange, green, yellow
 
 [general]
 auto_submit = false
+auto_paste = true          # insert text into target window
+use_window_picker = true   # show window picker before pasting
+insertion_method = "TypeEveryCharacter"  # or "PasteFullTranscript" or "Off"
 history_enabled = true
 auto_save_transcriptions = false
 context_header = true
