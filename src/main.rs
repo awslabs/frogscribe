@@ -3,7 +3,6 @@
 
 mod audio;
 mod auto_transcription;
-mod autostart;
 mod cli;
 mod dbus;
 mod diarization;
