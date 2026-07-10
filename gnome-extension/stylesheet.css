@@ -1,0 +1,9 @@
+.frogscribe-recording {
+    color: #e74c3c;
+}
+
+.frogscribe-topbar {
+    height: 6px;
+    background-color: rgba(20, 184, 166, 0.85);
+    transition-duration: 300ms;
+}

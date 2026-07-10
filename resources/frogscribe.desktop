@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FrogScribe
+Comment=Voice dictation for Linux
+Exec=frogscribe
+Icon=frogscribe
+Terminal=false
+Categories=Utility;Accessibility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

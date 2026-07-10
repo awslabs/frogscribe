@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: wisp
+Source: https://wiki.amazon.com/bin/view/Wisp_Voice
+
+Files: *
+Copyright: 2026 Tom Callaway <spotaws@amazon.com>
+License: MIT

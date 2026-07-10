@@ -1,0 +1,11 @@
+[Unit]
+Description=ydotool automation daemon
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ydotoold --socket-path=/tmp/.ydotool_socket --socket-perm=0666
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
