@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 /// Supported languages for Whisper transcription (99 languages)
 #[derive(Debug, Clone)]

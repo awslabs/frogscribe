@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Gio from 'gi://Gio';

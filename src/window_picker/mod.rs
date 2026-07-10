@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 //! Window picker: queries the GNOME extension for open windows,
 //! shows a GTK dialog for the user to pick a target, then activates

@@ -3,7 +3,7 @@ name = "frogscribe"
 version = "0.1.8"
 edition = "2021"
 description = "Voice dictation for Linux GNOME — press a hotkey, speak, and text is inserted at the cursor"
-license = "MIT"
+license = "Apache-2.0"
 authors = ["FrogScribe Contributors"]
 
 [dependencies]

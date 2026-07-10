@@ -37,6 +37,7 @@ Voice dictation for Linux GNOME. Press a hotkey, speak, and your words are trans
 
 ## Requirements
 
+- Rust 1.85+ (for building from source)
 - Linux with PulseAudio or PipeWire
 - GNOME Shell 45+ (for the panel extension)
 - `ydotool` for text insertion (system service with socket permissions)
@@ -164,69 +165,50 @@ History is stored in `~/.local/share/frogscribe/history.json`.
 ## Architecture
 
 ```
-FrogScribe/src/
-├── main.rs                  # Entry point, event loop, CLI dispatch
+frogscribe/src/
+├── main.rs                    # Entry point, event loop, CLI dispatch
 ├── audio/
-│   ├── mod.rs               # PulseAudio/PipeWire recording (16kHz mono f32)
-│   └── devices.rs           # Audio device enumeration via pactl
-├── auto_transcription/mod.rs # Mic activity detection + VAD auto-stop
-├── autostart/mod.rs         # XDG autostart .desktop management
-├── cli/mod.rs               # CLI audio file transcription via ffmpeg
-├── dbus/mod.rs              # D-Bus service (com.frogscribe.Daemon)
-├── history/mod.rs           # Transcription history (JSON storage)
-├── history_window/mod.rs    # GTK3 history viewer
-├── hotkey/mod.rs            # Configurable global hotkeys via evdev
-├── indicator/mod.rs         # GTK3 recording indicator overlay (Pill mode)
-├── insertion/mod.rs         # Text insertion via ydotool + clipboard
-├── languages/mod.rs         # 99+ language registry
-├── longform/mod.rs          # Long-form continuous dictation sessions
-├── models/mod.rs            # Model metadata, download, health check
-├── notifications/mod.rs     # Desktop notifications via notify-send
-├── onboarding/              # First-run setup wizard
-├── refinement/mod.rs        # Rule-based text cleanup
-├── settings/mod.rs          # TOML config persistence
-├── streaming/mod.rs         # Streaming transcription with partial results
-├── tests.rs                 # Test suite (94 tests)
-├── transcript_window/mod.rs # Long-form transcript window
-├── transcription/mod.rs     # whisper.cpp integration via whisper-rs
-├── tray/mod.rs              # Ayatana AppIndicator system tray
-└── ui/mod.rs                # GTK3 settings window
+│   ├── mod.rs                 # PulseAudio/PipeWire recording + desktop audio capture
+│   └── devices.rs             # Audio device enumeration via pactl
+├── auto_transcription/mod.rs  # Mic activity detection + VAD auto-stop
+├── autostart/mod.rs           # XDG autostart .desktop management
+├── cli/mod.rs                 # CLI audio file transcription via ffmpeg
+├── dbus/mod.rs                # D-Bus service (com.frogscribe.Daemon) with auth
+├── diarization/mod.rs         # Speaker diarization (pyannote.audio)
+├── ear_protection/mod.rs      # Bluetooth audio profile switch protection
+├── escape_cancel/mod.rs       # Escape key monitoring to cancel recording
+├── history/mod.rs             # Transcription history (JSON storage)
+├── history_window/mod.rs      # GTK3 history viewer
+├── hotkey/mod.rs              # Configurable global hotkeys via evdev
+├── indicator/mod.rs           # GTK3 recording indicator overlay
+├── insertion/mod.rs           # Text insertion via ydotool (type/paste modes)
+├── known_terms/mod.rs         # Known term corrections (VS Code, macOS, etc.)
+├── languages/mod.rs           # 99+ language registry
+├── live_preview/mod.rs        # Tabbed live streaming preview window
+├── longform/mod.rs            # Long-form continuous dictation sessions
+├── model_doctor/mod.rs        # Model integrity checking and repair
+├── models/mod.rs              # Model metadata, download management
+├── notifications/mod.rs       # Desktop notifications via notify-send
+├── onboarding/                # First-run setup wizard (GTK3)
+├── practice/mod.rs            # Practice recording for onboarding
+├── refinement/mod.rs          # Rule-based text cleanup
+├── settings/mod.rs            # TOML config persistence
+├── smart_refinement/mod.rs    # AI-powered text refinement (Bedrock)
+├── streaming/mod.rs           # Streaming transcription with sliding window
+├── tests.rs                   # Test suite (85 tests)
+├── transcript_window/mod.rs   # Long-form transcript window
+├── transcription/mod.rs       # whisper.cpp integration via whisper-rs
+├── ui/mod.rs                  # GTK3 settings window
+├── vocabulary/mod.rs          # Custom vocabulary management
+└── window_picker/mod.rs       # Window target selection via D-Bus
 
 gnome-extension/
-├── extension.js             # GNOME Shell panel indicator + top bar overlay
-├── metadata.json            # Extension metadata
-├── stylesheet.css           # Extension styles
-└── frogscribe-symbolic.svg        # Panel icon
+├── extension.js               # Panel indicator, pill/topbar overlays, window picker
+├── metadata.json              # Extension metadata (frogscribe@frogscribe.app)
+├── stylesheet.css             # Extension styles
+└── frogscribe-symbolic.svg    # Panel icon
 ```
-
-## Feature Parity with macOS
-
-| macOS Feature | Linux Implementation |
-|---------------|---------------------|
-| Global Hotkey (⌥Space) | evdev monitoring (`Ctrl+Shift+Space`, configurable) |
-| Fn Hold-to-Talk | Hold-to-talk via evdev (any key) |
-| WhisperKit (CoreML) | whisper.cpp (OpenBLAS + Vulkan) |
-| Direct Text Insertion | ydotool + clipboard |
-| Auto-Submit | ydotool Enter key simulation |
-| Multiple Models | ggml-tiny through ggml-large-v3 |
-| 99+ Languages | Full Whisper language registry |
-| Translate to English | whisper.cpp translate mode |
-| Audio Device Selection | pactl source enumeration |
-| Office Mode | Peak normalization |
-| Streaming Transcription | Periodic re-transcription with live preview window |
-| Long-Form Dictation | Continuous recording + transcript window |
-| Text Refinement (Local) | Regex-based filler/caps/vocab |
-| Recording Indicator | GTK3 pill overlay + GNOME Shell top bar |
-| Transcription History | JSON storage + GTK3 viewer |
-| Menu Bar | GNOME Shell extension panel indicator |
-| Launch at Login | Managed by GNOME Shell extension |
-| Settings UI | GTK3 notebook (5 tabs) |
-| CLI Transcription | --transcribe flag + ffmpeg |
-| Model Health Check | Size validation + auto-repair |
-| Auto-Transcription | Mic activity detection + energy VAD |
-| Auto-Save | Timestamped files with context headers |
-| Auto-Update | — (use system package manager) |
 
 ## License
 
-MIT
+Apache-2.0

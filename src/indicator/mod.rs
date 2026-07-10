@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
 //! Recording indicator overlay window (GTK3).
 //! Supports Pill and TopBar placement, Ghost and Classic styles,

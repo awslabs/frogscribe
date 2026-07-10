@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Live Preview window — singleton tabbed window for streaming transcription.
 
 use gtk3::prelude::*;

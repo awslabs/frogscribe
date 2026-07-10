@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 use gtk3::prelude::*;
 use gtk3::{self, Window, WindowType, Box as GtkBox, Button, Label, Orientation, ScrolledWindow, Separator, TextView};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};

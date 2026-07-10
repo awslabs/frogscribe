@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Escape-to-cancel: monitors Escape key during recording to abort without transcribing.
 
 use evdev::{InputEventKind, Key};

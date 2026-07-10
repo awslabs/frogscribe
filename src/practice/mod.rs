@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Practice mode: interactive dictation test during onboarding.
 //! Records audio, transcribes, and displays result to confirm setup works.
 
