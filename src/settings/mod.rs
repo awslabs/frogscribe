@@ -91,7 +91,6 @@ pub enum IndicatorStyle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralConfig {
-    pub auto_start: bool,
     pub auto_submit: bool,
     pub history_enabled: bool,
     #[serde(default)]
@@ -175,7 +174,6 @@ impl Default for Settings {
                 indicator_style: None,
             },
             general: GeneralConfig {
-                auto_start: false,
                 auto_submit: false,
                 history_enabled: true,
                 auto_save_transcriptions: false,

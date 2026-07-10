@@ -244,16 +244,6 @@ mod tests {
         }
     }
 
-    mod autostart_tests {
-        use crate::autostart;
-
-        #[test]
-        fn test_autostart_path_exists() {
-            // Just verify the functions don't panic
-            let _ = autostart::is_enabled();
-        }
-    }
-
     mod audio_device_tests {
         use crate::audio::devices;
 
@@ -297,7 +287,6 @@ mod tests {
             s.refinement.custom_vocabulary = vec!["FrogScribe".into(), "GNOME".into()];
             s.appearance.indicator_style = Some(IndicatorStyle::TopBar);
             s.appearance.accent_color = "purple".into();
-            s.general.auto_start = true;
             s.general.auto_submit = true;
             s.general.history_enabled = false;
 
@@ -318,7 +307,6 @@ mod tests {
             assert_eq!(loaded.refinement.custom_vocabulary, vec!["FrogScribe", "GNOME"]);
             assert!(matches!(loaded.appearance.indicator_style, Some(IndicatorStyle::TopBar)));
             assert_eq!(loaded.appearance.accent_color, "purple");
-            assert!(loaded.general.auto_start);
             assert!(loaded.general.auto_submit);
             assert!(!loaded.general.history_enabled);
         }
