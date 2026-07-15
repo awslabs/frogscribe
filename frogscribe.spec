@@ -1,5 +1,5 @@
 Name:           frogscribe
-Version:        0.1.8
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Voice dictation for Linux GNOME — press a hotkey, speak, text appears at cursor
 
@@ -10,8 +10,7 @@ Source0:        frogscribe-%{version}.tar.gz
 BuildRequires:  rust >= 1.70
 BuildRequires:  cargo
 BuildRequires:  clang-devel
-BuildRequires:  gtk3-devel
-BuildRequires:  libappindicator-gtk3-devel
+BuildRequires:  gtk4-devel
 BuildRequires:  openssl-devel
 BuildRequires:  pango-devel
 BuildRequires:  gdk-pixbuf2-devel
@@ -68,6 +67,17 @@ install -Dm644 resources/ydotool-socket-perms.conf %{buildroot}%{_unitdir}/ydoto
 %{_unitdir}/ydotool.service.d/socket-perms.conf
 
 %changelog
+* Tue Jul 15 2026 Tom Callaway <spotaws@amazon.com> - 0.2.0-1
+- Updated panel icon
+- README cleanup and GTK4 highlight
+- Removed auto_start dead code
+
+* Fri Jul 10 2026 Tom Callaway <spotaws@amazon.com> - 0.1.9-1
+- Migrated from GTK3 to GTK4 (resolves RUSTSEC-2024-0394 glib vulnerability)
+- Updated glib from 0.18 to 0.20
+- Removed unmaintained gtk3 dependency
+- Removed libappindicator dependency
+
 * Fri Jul 10 2026 Tom Callaway <spotaws@amazon.com> - 0.1.8-1
 - Renamed project to FrogScribe
 - Desktop audio capture (mix monitor source with mic for meeting transcription)
