@@ -34,7 +34,7 @@ mod window_picker;
 
 use anyhow::Result;
 use clap::Parser;
-use gtk3::prelude::*;
+use gtk4::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser)]
@@ -98,14 +98,14 @@ fn main() -> Result<()> {
 
     // --history opens the history viewer
     if args.history {
-        gtk3::init().expect("Failed to initialize GTK3");
+        gtk4::init();
         history_window::show();
-        gtk3::main();
+        glib::MainLoop::new(None, false).run();
         return Ok(());
     }
 
     // All other modes use GTK3 (for tray). Init before anything touches GDK.
-    gtk3::init().expect("Failed to initialize GTK3");
+    gtk4::init();
 
     if let Some(audio_path) = args.transcribe {
         let rt = tokio::runtime::Runtime::new()?;
@@ -152,7 +152,7 @@ fn main() -> Result<()> {
 
     // Run GTK main loop on main thread (needed for indicator overlays and dialogs)
     // The GNOME Shell extension handles the panel indicator/menu.
-    gtk3::main();
+    glib::MainLoop::new(None, false).run();
 
     Ok(())
 }

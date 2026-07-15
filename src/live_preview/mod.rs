@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Live Preview window — singleton tabbed window for streaming transcription.
 
-use gtk3::prelude::*;
-use gtk3::{self, Notebook, Window, WindowType, Box as GtkBox, Button, Label, Orientation, ScrolledWindow, TextView};
+use gtk4::prelude::*;
+use gtk4::{self, Notebook, Window, Box as GtkBox, Button, Label, Orientation, ScrolledWindow, TextView};
 use std::sync::{Arc, Mutex};
 use std::cell::RefCell;
 
@@ -24,19 +24,20 @@ pub fn open_tab(source: &str) -> Arc<Mutex<String>> {
         });
 
         if need_new_window {
-            let window = Window::new(WindowType::Toplevel);
-            window.set_title("FrogScribe — Live Preview");
+            let window = Window::new();
+            window.set_title(Some("FrogScribe — Live Preview"));
             window.set_default_size(550, 300);
 
             let vbox = GtkBox::new(Orientation::Vertical, 0);
             let notebook = Notebook::new();
             notebook.set_scrollable(true);
-            vbox.pack_start(&notebook, true, true, 0);
-            window.add(&vbox);
+            notebook.set_vexpand(true);
+            vbox.append(&notebook);
+            window.set_child(Some(&vbox));
 
             NOTEBOOK.with(|nb| *nb.borrow_mut() = Some(notebook.clone()));
             WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
-            window.show_all();
+            window.present();
         }
 
         // Add a new tab
@@ -45,7 +46,6 @@ pub fn open_tab(source: &str) -> Arc<Mutex<String>> {
                 let tab_label = make_tab_label(&source);
                 let tab_content = make_tab_content(live_text_ui, &source);
                 notebook.append_page(&tab_content, Some(&tab_label));
-                notebook.show_all();
                 let n = notebook.n_pages();
                 notebook.set_current_page(Some(n - 1));
             }
@@ -69,8 +69,7 @@ fn make_tab_label(source: &str) -> GtkBox {
         .unwrap_or_else(|_| "new".to_string());
     let label_text = if source.is_empty() { dt } else { format!("{} {}", dt, source) };
     let label = Label::new(Some(&label_text));
-    hbox.pack_start(&label, false, false, 0);
-    hbox.show_all();
+    hbox.append(&label);
     hbox
 }
 
@@ -79,16 +78,17 @@ fn make_tab_content(live_text: Arc<Mutex<String>>, source: &str) -> GtkBox {
 
     let tv = TextView::new();
     tv.set_editable(false);
-    tv.set_wrap_mode(gtk3::WrapMode::Word);
+    tv.set_wrap_mode(gtk4::WrapMode::Word);
     tv.set_top_margin(12);
     tv.set_bottom_margin(40);
     tv.set_left_margin(12);
     tv.set_right_margin(12);
-    tv.buffer().unwrap().set_text("Listening...");
+    tv.buffer().set_text("Listening...");
 
-    let scrolled = ScrolledWindow::new(gtk3::Adjustment::NONE, gtk3::Adjustment::NONE);
-    scrolled.add(&tv);
-    vbox.pack_start(&scrolled, true, true, 0);
+    let scrolled = ScrolledWindow::new();
+    scrolled.set_child(Some(&tv));
+    scrolled.set_vexpand(true);
+    vbox.append(&scrolled);
 
     // Toolbar
     let toolbar = GtkBox::new(Orientation::Horizontal, 8);
@@ -101,8 +101,9 @@ fn make_tab_content(live_text: Arc<Mutex<String>>, source: &str) -> GtkBox {
     let tv_save = tv.clone();
     let source_for_save = source.to_string();
     save_btn.connect_clicked(move |btn| {
-        let buf = match tv_save.buffer() { Some(b) => b, None => return };
-        let text = buf.text(&buf.start_iter(), &buf.end_iter(), false).map(|s| s.to_string()).unwrap_or_default();
+        let buf = tv_save.buffer();
+        let (start, end) = (buf.start_iter(), buf.end_iter());
+        let text = buf.text(&start, &end, false).to_string();
         if text.is_empty() || text == "Listening..." { return; }
         let save_content = if let Ok(s) = crate::settings::Settings::load() {
             if s.general.context_header {
@@ -113,41 +114,48 @@ fn make_tab_content(live_text: Arc<Mutex<String>>, source: &str) -> GtkBox {
                 format!("---\nTimestamp: {}\nSource: {}\n---\n\n{}", now, source_for_save, text)
             } else { text.clone() }
         } else { text.clone() };
-        let dialog = gtk3::FileChooserDialog::with_buttons(
+        let parent_window = btn.root().and_then(|r| r.downcast::<Window>().ok());
+        let dialog = gtk4::FileChooserDialog::new(
             Some("Save Transcript"),
-            btn.toplevel().and_then(|w| w.downcast::<Window>().ok()).as_ref(),
-            gtk3::FileChooserAction::Save,
-            &[("Cancel", gtk3::ResponseType::Cancel), ("Save", gtk3::ResponseType::Accept)],
+            parent_window.as_ref(),
+            gtk4::FileChooserAction::Save,
+            &[("Cancel", gtk4::ResponseType::Cancel), ("Save", gtk4::ResponseType::Accept)],
         );
         let dt = glib::DateTime::now_local().unwrap();
         let fname = format!("transcript-{}.txt", dt.format("%Y%m%d-%H%M%S").unwrap_or_else(|_| glib::GString::from("unknown")));
         dialog.set_current_name(&fname);
-        if dialog.run() == gtk3::ResponseType::Accept {
-            if let Some(path) = dialog.filename() {
-                let _ = std::fs::write(&path, &save_content);
+        dialog.connect_response(move |d, response| {
+            if response == gtk4::ResponseType::Accept {
+                if let Some(file) = d.file() {
+                    if let Some(path) = file.path() {
+                        let _ = std::fs::write(&path, &save_content);
+                    }
+                }
             }
-        }
-        unsafe { dialog.destroy(); }
+            d.close();
+        });
+        dialog.present();
     });
-    toolbar.pack_end(&save_btn, false, false, 0);
-    vbox.pack_start(&toolbar, false, false, 0);
+    save_btn.set_hexpand(true);
+    save_btn.set_halign(gtk4::Align::End);
+    toolbar.append(&save_btn);
+    vbox.append(&toolbar);
 
-    // Timer to update text (stops when the tab's TextView is no longer visible/realized)
+    // Timer to update text
     let lt = live_text;
+    let tv_update = tv.clone();
     glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
         // Stop if the widget has been destroyed (tab closed or window closed)
-        if !tv.is_realized() {
+        if !tv_update.is_realized() {
             return glib::ControlFlow::Break;
         }
         let text = lt.lock().unwrap().clone();
-        if let Some(buf) = tv.buffer() {
-            let display = if text.is_empty() { "Listening...".to_string() } else { text };
-            let existing = buf.text(&buf.start_iter(), &buf.end_iter(), false).map(|s| s.to_string()).unwrap_or_default();
-            if display != existing {
-                buf.set_text(&display);
-                let end = buf.end_iter();
-                tv.scroll_to_iter(&mut end.clone(), 0.0, true, 0.0, 1.0);
-            }
+        let buf = tv_update.buffer();
+        let display = if text.is_empty() { "Listening...".to_string() } else { text };
+        let (start, end) = (buf.start_iter(), buf.end_iter());
+        let existing = buf.text(&start, &end, false).to_string();
+        if display != existing {
+            buf.set_text(&display);
         }
         glib::ControlFlow::Continue
     });

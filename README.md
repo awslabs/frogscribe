@@ -7,7 +7,9 @@
    ^^ ~~ ^^
 ```
 
-Voice dictation for Linux GNOME. Press a hotkey, speak, and your words are transcribed and inserted at the cursor using on-device AI. Like a frog catching flies — quick, precise, and always listening when you need it.
+Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, speak, and your words are transcribed and inserted at the cursor using on-device AI. Like a frog catching flies — quick, precise, and always listening when you need it.
+
+**Key technologies:** GTK4, whisper.cpp (OpenBLAS + Vulkan), GNOME Shell Extension, PipeWire/PulseAudio, D-Bus, evdev
 
 ## Features
 
@@ -50,16 +52,16 @@ Voice dictation for Linux GNOME. Press a hotkey, speak, and your words are trans
 
 ```bash
 # Install system dependencies (Debian/Ubuntu)
-sudo apt install build-essential libclang-dev libgtk-3-dev \
-    libappindicator3-dev libgtk-layer-shell-dev libopenblas-dev \
-    libvulkan-dev ffmpeg ydotool
+sudo apt install build-essential libclang-dev libgtk-4-dev \
+    libgtk-layer-shell-dev libopenblas-dev libvulkan-dev \
+    glslc cmake ffmpeg ydotool
 
 # NOTE: Ubuntu 24.04 ships Rust 1.75 which is too old. Install Rust 1.85+ via rustup:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
 # Install system dependencies (Fedora)
-sudo dnf install rust cargo clang-devel gtk3-devel libappindicator-gtk3-devel \
+sudo dnf install rust cargo clang-devel gtk4-devel \
     openssl-devel pango-devel gdk-pixbuf2-devel cairo-devel glib2-devel atk-devel \
     gtk-layer-shell-devel openblas-devel vulkan-headers vulkan-loader-devel \
     ffmpeg-free ydotool
@@ -75,7 +77,7 @@ sudo cp target/release/frogscribe /usr/local/bin/
 ## Usage
 
 ```bash
-# Run the daemon (with system tray)
+# Run the daemon (managed by GNOME Shell extension)
 frogscribe
 
 # Transcribe a file
@@ -175,16 +177,15 @@ frogscribe/src/
 │   ├── mod.rs                 # PulseAudio/PipeWire recording + desktop audio capture
 │   └── devices.rs             # Audio device enumeration via pactl
 ├── auto_transcription/mod.rs  # Mic activity detection + VAD auto-stop
-├── autostart/mod.rs           # XDG autostart .desktop management
 ├── cli/mod.rs                 # CLI audio file transcription via ffmpeg
 ├── dbus/mod.rs                # D-Bus service (com.frogscribe.Daemon) with auth
 ├── diarization/mod.rs         # Speaker diarization (pyannote.audio)
 ├── ear_protection/mod.rs      # Bluetooth audio profile switch protection
 ├── escape_cancel/mod.rs       # Escape key monitoring to cancel recording
 ├── history/mod.rs             # Transcription history (JSON storage)
-├── history_window/mod.rs      # GTK3 history viewer
+├── history_window/mod.rs      # GTK4 history viewer
 ├── hotkey/mod.rs              # Configurable global hotkeys via evdev
-├── indicator/mod.rs           # GTK3 recording indicator overlay
+├── indicator/mod.rs           # GTK4 recording indicator overlay
 ├── insertion/mod.rs           # Text insertion via ydotool (type/paste modes)
 ├── known_terms/mod.rs         # Known term corrections (VS Code, macOS, etc.)
 ├── languages/mod.rs           # 99+ language registry
@@ -193,16 +194,16 @@ frogscribe/src/
 ├── model_doctor/mod.rs        # Model integrity checking and repair
 ├── models/mod.rs              # Model metadata, download management
 ├── notifications/mod.rs       # Desktop notifications via notify-send
-├── onboarding/                # First-run setup wizard (GTK3)
+├── onboarding/                # First-run setup wizard (GTK4)
 ├── practice/mod.rs            # Practice recording for onboarding
 ├── refinement/mod.rs          # Rule-based text cleanup
 ├── settings/mod.rs            # TOML config persistence
 ├── smart_refinement/mod.rs    # AI-powered text refinement (Bedrock)
 ├── streaming/mod.rs           # Streaming transcription with sliding window
-├── tests.rs                   # Test suite (85 tests)
+├── tests.rs                   # Test suite (83 tests)
 ├── transcript_window/mod.rs   # Long-form transcript window
 ├── transcription/mod.rs       # whisper.cpp integration via whisper-rs
-├── ui/mod.rs                  # GTK3 settings window
+├── ui/mod.rs                  # GTK4 settings window
 ├── vocabulary/mod.rs          # Custom vocabulary management
 └── window_picker/mod.rs       # Window target selection via D-Bus
 

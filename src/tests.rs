@@ -51,8 +51,6 @@ mod tests {
             assert!(!is_modifier_match(evdev::Key::KEY_LEFTCTRL, evdev::Key::KEY_LEFTALT));
         }
     }
-
-
     mod hold_to_talk_debounce_tests {
         use crate::AppEvent;
         use std::time::Duration;
@@ -460,8 +458,6 @@ mod tests {
             match e3 { LongFormEvent::Error { message } => assert_eq!(message, "oops"), _ => panic!() }
         }
     }
-
-
     mod hotkey_recorder_tests {
         use crate::ui::capitalize_key;
 
@@ -590,16 +586,6 @@ mod tests {
             assert!(args.setup);
             assert!(args.transcribe.is_none());
             assert!(args.download_model.is_none());
-        }
-
-        /// Verify the tray module calls gtk3::init (not gtk4)
-        #[test]
-        fn test_tray_uses_gtk3() {
-            // The tray module imports gtk3, not gtk4.
-            // This is a compile-time guarantee — if tray/mod.rs uses `gtk3::init()`,
-            // it won't conflict with GTK4 in a subprocess.
-            // We verify the module exists and the crate compiles with both gtk3 and gtk4.
-            assert!(true, "Compilation with both gtk3 and gtk4 crates succeeded");
         }
 
         /// Verify has_display() checks environment variables

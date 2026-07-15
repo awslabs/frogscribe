@@ -1,24 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <!-- FrogScribe GNOME symbolic icon: frog head with headphones -->
-  <g fill="#ffffff" fill-rule="evenodd">
-    <!-- Headphone band (arc across top) -->
-    <path d="M3,7 C3,3.5 5,1.5 8,1.5 C11,1.5 13,3.5 13,7" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
-    <!-- Left ear cup -->
-    <rect x="1.5" y="6" width="2.5" height="4" rx="1"/>
-    <!-- Right ear cup -->
-    <rect x="12" y="6" width="2.5" height="4" rx="1"/>
-    <!-- Frog head (wide rounded shape) -->
-    <ellipse cx="8" cy="9.5" rx="4" ry="3.5"/>
-    <!-- Left eye bump -->
-    <circle cx="5.8" cy="6.5" r="1.5"/>
-    <!-- Right eye bump -->
-    <circle cx="10.2" cy="6.5" r="1.5"/>
-    <!-- Left eye (cutout - dark) -->
-    <circle cx="5.8" cy="6.5" r="0.6" fill="#000000"/>
-    <!-- Right eye (cutout - dark) -->
-    <circle cx="10.2" cy="6.5" r="0.6" fill="#000000"/>
-    <!-- Mouth line (smile) -->
-    <path d="M5.5,11.5 Q8,13 10.5,11.5" fill="none" stroke="#000000" stroke-width="0.6" stroke-linecap="round"/>
+  <!-- FrogScribe GNOME panel icon: frog face, single color -->
+  <g fill="#ffffff">
+    <!-- Left eye (protruding circle above head) -->
+    <circle cx="4.5" cy="4" r="2.5"/>
+    <!-- Right eye (protruding circle above head) -->
+    <circle cx="11.5" cy="4" r="2.5"/>
+    <!-- Left pupil (cutout) -->
+    <circle cx="4.5" cy="4.3" r="1" fill="#000000"/>
+    <!-- Right pupil (cutout) -->
+    <circle cx="11.5" cy="4.3" r="1" fill="#000000"/>
+    <!-- Head/jaw (wide rounded rectangle) -->
+    <rect x="1.5" y="5.5" width="13" height="8" rx="4"/>
+    <!-- Nostrils -->
+    <circle cx="5.5" cy="8" r="0.7" fill="#000000"/>
+    <circle cx="10.5" cy="8" r="0.7" fill="#000000"/>
+    <!-- Wide mouth (smile) -->
+    <path d="M4,11 Q8,14 12,11" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="round"/>
   </g>
 </svg>

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-use gtk3::prelude::*;
-use gtk3::{self, Application, ApplicationWindow, Box as GtkBox, Button, ComboBoxText, Label, Notebook, Orientation, ProgressBar, RadioButton};
+use gtk4::prelude::*;
+use gtk4::{self, Application, ApplicationWindow, Box as GtkBox, Button, CheckButton, ComboBoxText, Label, Notebook, Orientation, ProgressBar};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
@@ -49,20 +49,20 @@ fn build_wizard(app: &Application) {
     // Page 6: Complete
     notebook.append_page(&build_complete_page(&window, &selected_model, &selected_method, &selected_hotkey), None::<&Label>);
 
-    window.add(&notebook);
-    window.show_all();
+    window.set_child(Some(&notebook));
+    window.present();
 }
 
 fn progress_label(step: u32) -> Label {
     let lbl = Label::new(Some(&format!("Step {} of {}", step, TOTAL_PAGES)));
-    lbl.set_halign(gtk3::Align::End);
+    lbl.set_halign(gtk4::Align::End);
     lbl.set_opacity(0.6);
     lbl
 }
 
 fn build_welcome_page(notebook: &Notebook) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(1), false, false, 0);
+    page.append(&progress_label(1));
 
     // FrogScribe logo
     let icon_path = "/usr/share/icons/hicolor/128x128/apps/frogscribe.png";
@@ -71,55 +71,57 @@ fn build_welcome_page(notebook: &Notebook) -> GtkBox {
         .unwrap_or_default();
     let path = if std::path::Path::new(icon_path).exists() { icon_path.to_string() } else { fallback.to_string_lossy().to_string() };
     if std::path::Path::new(&path).exists() {
-        let image = gtk3::Image::from_file(&path);
-        page.pack_start(&image, false, false, 8);
+        let image = gtk4::Image::from_file(&path);
+        page.append(&image);
     }
 
-    page.pack_start(&Label::new(Some("Welcome to FrogScribe")), false, false, 8);
-    page.pack_start(&Label::new(Some("Voice dictation powered by on-device AI.\nPress a hotkey, speak, and text appears at your cursor.")), false, false, 8);
-    page.pack_start(&Label::new(Some("✓ Private — all processing on your device\n✓ Fast — transcription in under a second\n✓ Works everywhere — inserts text in any app")), false, false, 8);
+    page.append(&Label::new(Some("Welcome to FrogScribe")));
+    page.append(&Label::new(Some("Voice dictation powered by on-device AI.\nPress a hotkey, speak, and text appears at your cursor.")));
+    page.append(&Label::new(Some("✓ Private — all processing on your device\n✓ Fast — transcription in under a second\n✓ Works everywhere — inserts text in any app")));
 
     let btn = Button::with_label("Get Started →");
     let nb = notebook.clone();
     btn.connect_clicked(move |_| { nb.next_page(); });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 
 fn build_permissions_page(notebook: &Notebook) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(2), false, false, 0);
-    page.pack_start(&Label::new(Some("Permissions")), false, false, 8);
+    page.append(&progress_label(2));
+    page.append(&Label::new(Some("Permissions")));
 
     let input_ok = std::process::Command::new("groups").output()
         .map(|o| String::from_utf8_lossy(&o.stdout).contains("input")).unwrap_or(false);
-    page.pack_start(&Label::new(Some(&format!("{} Input group (hotkeys)", if input_ok { "✓" } else { "⚠" }))), false, false, 4);
+    page.append(&Label::new(Some(&format!("{} Input group (hotkeys)", if input_ok { "✓" } else { "⚠" }))));
 
     let tool_ok = std::process::Command::new("which").arg("ydotool").output()
         .map(|o| o.status.success()).unwrap_or(false)
         || std::process::Command::new("which").arg("xdotool").output()
         .map(|o| o.status.success()).unwrap_or(false);
-    page.pack_start(&Label::new(Some(&format!("{} Text insertion", if tool_ok { "✓" } else { "⚠" }))), false, false, 4);
+    page.append(&Label::new(Some(&format!("{} Text insertion", if tool_ok { "✓" } else { "⚠" }))));
 
     let parec_ok = std::process::Command::new("which").arg("parec").output()
         .map(|o| o.status.success()).unwrap_or(false);
-    page.pack_start(&Label::new(Some(&format!("{} Audio capture", if parec_ok { "✓" } else { "⚠" }))), false, false, 4);
+    page.append(&Label::new(Some(&format!("{} Audio capture", if parec_ok { "✓" } else { "⚠" }))));
 
     let btn = Button::with_label("Next →");
     let nb = notebook.clone();
     btn.connect_clicked(move |_| { nb.next_page(); });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 
 fn build_activation_page(notebook: &Notebook, selected_method: &Rc<RefCell<ActivationMethod>>) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(3), false, false, 0);
-    page.pack_start(&Label::new(Some("Activation Method")), false, false, 8);
-    page.pack_start(&Label::new(Some("How would you like to trigger dictation?")), false, false, 4);
+    page.append(&progress_label(3));
+    page.append(&Label::new(Some("Activation Method")));
+    page.append(&Label::new(Some("How would you like to trigger dictation?")));
 
-    let toggle_radio = RadioButton::with_label("Toggle Hotkey — press once to start, again to stop");
-    let hold_radio = RadioButton::with_label_from_widget(&toggle_radio, "Hold to Talk — hold key to record, release to transcribe");
+    // GTK4: Use CheckButton with set_group instead of RadioButton
+    let toggle_radio = CheckButton::with_label("Toggle Hotkey — press once to start, again to stop");
+    let hold_radio = CheckButton::with_label("Hold to Talk — hold key to record, release to transcribe");
+    hold_radio.set_group(Some(&toggle_radio));
     toggle_radio.set_active(true);
 
     let sm = selected_method.clone();
@@ -135,78 +137,70 @@ fn build_activation_page(notebook: &Notebook, selected_method: &Rc<RefCell<Activ
         }
     });
 
-    page.pack_start(&toggle_radio, false, false, 4);
-    page.pack_start(&hold_radio, false, false, 4);
+    page.append(&toggle_radio);
+    page.append(&hold_radio);
 
     let btn = Button::with_label("Next →");
     let nb = notebook.clone();
     btn.connect_clicked(move |_| { nb.next_page(); });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 
 fn build_hotkey_page(notebook: &Notebook, selected_hotkey: &Rc<RefCell<String>>) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(4), false, false, 0);
-    page.pack_start(&Label::new(Some("Hotkey Configuration")), false, false, 8);
-    page.pack_start(&Label::new(Some("Press your desired key combination below:")), false, false, 4);
+    page.append(&progress_label(4));
+    page.append(&Label::new(Some("Hotkey Configuration")));
+    page.append(&Label::new(Some("Press your desired key combination below:")));
 
     let hotkey_label = Label::new(Some("Ctrl+Shift+Space"));
     hotkey_label.set_markup("<span size='x-large'><b>Ctrl+Shift+Space</b></span>");
 
-    let frame = gtk3::Frame::new(None);
-    frame.set_shadow_type(gtk3::ShadowType::EtchedIn);
-    let event_box = gtk3::EventBox::new();
-    event_box.add(&hotkey_label);
-    frame.add(&event_box);
+    let frame = gtk4::Frame::new(None::<&str>);
+    frame.set_child(Some(&hotkey_label));
     frame.set_size_request(-1, 60);
-    page.pack_start(&frame, false, false, 8);
+    page.append(&frame);
 
     let capture_btn = Button::with_label("Press to set hotkey...");
     let _hl = hotkey_label.clone();
     let _sh = selected_hotkey.clone();
     let capturing = Rc::new(RefCell::new(false));
     let cap2 = capturing.clone();
-    let eb_for_focus = event_box.clone();
 
     capture_btn.connect_clicked(move |btn| {
         *cap2.borrow_mut() = true;
         btn.set_label("Press any key combination...");
         btn.set_sensitive(false);
-        eb_for_focus.grab_focus();
     });
 
     let sh2 = selected_hotkey.clone();
     let hl2 = hotkey_label.clone();
     let cap3 = capturing.clone();
     let cap_btn2 = capture_btn.clone();
-    event_box.set_can_focus(true);
-    event_box.add_events(gtk3::gdk::EventMask::KEY_PRESS_MASK);
-    event_box.connect_key_press_event(move |_widget, event| {
+    let key_controller = gtk4::EventControllerKey::new();
+    key_controller.connect_key_pressed(move |_, keyval, _keycode, state| {
         if !*cap3.borrow() {
             return glib::Propagation::Proceed;
         }
-        let keyval = event.keyval();
-        let state = event.state();
 
         // Ignore bare modifier presses
-        if matches!(keyval, gtk3::gdk::keys::constants::Shift_L | gtk3::gdk::keys::constants::Shift_R
-            | gtk3::gdk::keys::constants::Control_L | gtk3::gdk::keys::constants::Control_R
-            | gtk3::gdk::keys::constants::Alt_L | gtk3::gdk::keys::constants::Alt_R
-            | gtk3::gdk::keys::constants::Super_L | gtk3::gdk::keys::constants::Super_R) {
+        if matches!(keyval, gtk4::gdk::Key::Shift_L | gtk4::gdk::Key::Shift_R
+            | gtk4::gdk::Key::Control_L | gtk4::gdk::Key::Control_R
+            | gtk4::gdk::Key::Alt_L | gtk4::gdk::Key::Alt_R
+            | gtk4::gdk::Key::Super_L | gtk4::gdk::Key::Super_R) {
             return glib::Propagation::Stop;
         }
 
         let mut parts = Vec::new();
-        if state.contains(gtk3::gdk::ModifierType::CONTROL_MASK) { parts.push("Ctrl"); }
-        if state.contains(gtk3::gdk::ModifierType::MOD1_MASK) { parts.push("Alt"); }
-        if state.contains(gtk3::gdk::ModifierType::SUPER_MASK) { parts.push("Super"); }
-        if state.contains(gtk3::gdk::ModifierType::SHIFT_MASK) { parts.push("Shift"); }
+        if state.contains(gtk4::gdk::ModifierType::CONTROL_MASK) { parts.push("Ctrl".to_string()); }
+        if state.contains(gtk4::gdk::ModifierType::ALT_MASK) { parts.push("Alt".to_string()); }
+        if state.contains(gtk4::gdk::ModifierType::SUPER_MASK) { parts.push("Super".to_string()); }
+        if state.contains(gtk4::gdk::ModifierType::SHIFT_MASK) { parts.push("Shift".to_string()); }
 
         let key_name = keyval.name().unwrap_or_else(|| "Unknown".into());
         // Capitalize first letter for display
         let key_display = capitalize(&key_name);
-        parts.push(&key_display);
+        parts.push(key_display);
 
         let combo = parts.join("+");
         hl2.set_markup(&format!("<span size='x-large'><b>{}</b></span>", combo));
@@ -217,8 +211,10 @@ fn build_hotkey_page(notebook: &Notebook, selected_hotkey: &Rc<RefCell<String>>)
 
         glib::Propagation::Stop
     });
+    frame.add_controller(key_controller);
+    frame.set_focusable(true);
 
-    page.pack_start(&capture_btn, false, false, 4);
+    page.append(&capture_btn);
 
     let reset_btn = Button::with_label("Reset to Ctrl+Shift+Space");
     let hl3 = hotkey_label;
@@ -227,19 +223,19 @@ fn build_hotkey_page(notebook: &Notebook, selected_hotkey: &Rc<RefCell<String>>)
         hl3.set_markup("<span size='x-large'><b>Ctrl+Shift+Space</b></span>");
         *sh3.borrow_mut() = "Ctrl+Shift+Space".to_string();
     });
-    page.pack_start(&reset_btn, false, false, 4);
+    page.append(&reset_btn);
 
     let btn = Button::with_label("Next →");
     let nb = notebook.clone();
     btn.connect_clicked(move |_| { nb.next_page(); });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 
 fn build_model_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(5), false, false, 0);
-    page.pack_start(&Label::new(Some("Choose a Model")), false, false, 8);
+    page.append(&progress_label(5));
+    page.append(&Label::new(Some("Choose a Model")));
 
     let combo = ComboBoxText::new();
     for (id, size, desc) in crate::transcription::available_models() {
@@ -249,14 +245,14 @@ fn build_model_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>) -
     combo.set_active_id(Some("base"));
     let sm = selected_model.clone();
     combo.connect_changed(move |c| { if let Some(id) = c.active_id() { *sm.borrow_mut() = id.to_string(); } });
-    page.pack_start(&combo, false, false, 8);
+    page.append(&combo);
 
     let progress = ProgressBar::new();
     progress.set_visible(false);
-    page.pack_start(&progress, false, false, 4);
+    page.append(&progress);
 
     let status = Label::new(Some(""));
-    page.pack_start(&status, false, false, 4);
+    page.append(&status);
 
     let dl_btn = Button::with_label("Download Model");
     let sm2 = selected_model.clone();
@@ -295,27 +291,27 @@ fn build_model_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>) -
             glib::ControlFlow::Continue
         });
     });
-    page.pack_start(&dl_btn, false, false, 4);
+    page.append(&dl_btn);
 
     let btn = Button::with_label("Next →");
     let nb = notebook.clone();
     btn.connect_clicked(move |_| { nb.next_page(); });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 
 fn build_practice_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(6), false, false, 0);
-    page.pack_start(&Label::new(Some("Practice")), false, false, 8);
-    page.pack_start(&Label::new(Some("Test that everything works!\nClick Record, say a few words, then click Stop.")), false, false, 4);
+    page.append(&progress_label(6));
+    page.append(&Label::new(Some("Practice")));
+    page.append(&Label::new(Some("Test that everything works!\nClick Record, say a few words, then click Stop.")));
 
     // Mic status display
     let mic_box = GtkBox::new(Orientation::Vertical, 4);
     let mic_status = Label::new(None);
-    mic_status.set_halign(gtk3::Align::Start);
+    mic_status.set_halign(gtk4::Align::Start);
     let unmute_btn = Button::with_label("🔊 Unmute Microphone");
-    unmute_btn.set_no_show_all(true);
+    unmute_btn.set_visible(false);
 
     let (mic_name, muted, volume) = get_mic_status();
     if muted {
@@ -335,12 +331,12 @@ fn build_practice_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>
         mic_status_ref.set_markup(&format!("🎤 {} — Unmuted ✓", glib::markup_escape_text(&mic_name_ref)));
         unmute_btn_ref.set_visible(false);
     });
-    mic_box.pack_start(&mic_status, false, false, 0);
-    mic_box.pack_start(&unmute_btn, false, false, 0);
-    page.pack_start(&mic_box, false, false, 4);
+    mic_box.append(&mic_status);
+    mic_box.append(&unmute_btn);
+    page.append(&mic_box);
 
     let result_label = Label::new(Some(""));
-    result_label.set_line_wrap(true);
+    result_label.set_wrap(true);
     result_label.set_max_width_chars(80);
 
     let record_btn = Button::with_label("🎙 Record");
@@ -445,10 +441,10 @@ fn build_practice_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>
     });
 
     let btn_box = GtkBox::new(Orientation::Horizontal, 8);
-    btn_box.pack_start(&record_btn, true, true, 0);
-    btn_box.pack_start(&stop_btn, true, true, 0);
-    page.pack_start(&btn_box, false, false, 8);
-    page.pack_start(&result_label, false, false, 8);
+    btn_box.append(&record_btn);
+    btn_box.append(&stop_btn);
+    page.append(&btn_box);
+    page.append(&result_label);
 
     let skip_btn = Button::with_label("Skip →");
     let nb = notebook.clone();
@@ -459,9 +455,9 @@ fn build_practice_page(notebook: &Notebook, selected_model: &Rc<RefCell<String>>
     next_btn.connect_clicked(move |_| { nb2.next_page(); });
 
     let nav_box = GtkBox::new(Orientation::Horizontal, 8);
-    nav_box.pack_start(&skip_btn, true, true, 0);
-    nav_box.pack_start(&next_btn, true, true, 0);
-    page.pack_end(&nav_box, false, false, 8);
+    nav_box.append(&skip_btn);
+    nav_box.append(&next_btn);
+    page.append(&nav_box);
     page
 }
 
@@ -472,9 +468,9 @@ fn build_complete_page(
     selected_hotkey: &Rc<RefCell<String>>,
 ) -> GtkBox {
     let page = page_box();
-    page.pack_start(&progress_label(7), false, false, 0);
-    page.pack_start(&Label::new(Some("🎉 You're all set!")), false, false, 16);
-    page.pack_start(&Label::new(Some("FrogScribe is ready. It will run in your system tray.\n\n• Press your hotkey to start dictating\n• Right-click tray icon for settings")), false, false, 8);
+    page.append(&progress_label(7));
+    page.append(&Label::new(Some("🎉 You're all set!")));
+    page.append(&Label::new(Some("FrogScribe is ready. It will run in your system tray.\n\n• Press your hotkey to start dictating\n• Right-click tray icon for settings")));
 
     let btn = Button::with_label("Start Using FrogScribe");
     let w = window.clone();
@@ -491,7 +487,7 @@ fn build_complete_page(
         crate::onboarding::mark_complete();
         w.close();
     });
-    page.pack_end(&btn, false, false, 8);
+    page.append(&btn);
     page
 }
 

@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
-//! Recording indicator overlay window (GTK3).
+//! Recording indicator overlay window (GTK4).
 //! Supports Pill and TopBar placement, Ghost and Classic styles,
 //! 7 accent colors, full/mini display modes, fade-in/fade-out,
 //! click-to-toggle mode, non-activating (doesn't steal focus).
 
-use gtk3::prelude::*;
-use gtk3::{self, Window, WindowType, Box as GtkBox, Label, Orientation, CssProvider, StyleContext, DrawingArea};
-use gtk3::gdk;
-use gtk3::cairo;
+use gtk4::prelude::*;
+use gtk4::{self, Window, Box as GtkBox, Label, Orientation, CssProvider};
+use gtk4::gdk;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 // gtk-layer-shell FFI for Wayland top-edge anchoring
 mod layer_shell {
-    use gtk3::Window;
-    use glib::ObjectType;
+    use gtk4::Window;
+    use gtk4::prelude::ObjectType;
 
     #[repr(C)]
     #[allow(dead_code)]
@@ -85,7 +84,7 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
     let style = style.to_string();
     let placement = placement.to_string();
 
-    // Run on GTK3 main loop (shared with tray)
+    // Run on GTK4 main loop (shared with tray)
     let vis2 = vis.clone();
     let md2 = md.clone();
     glib::MainContext::default().invoke(move || {
@@ -93,11 +92,8 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
         let is_topbar = placement == "TopBar";
         let is_ghost = style == "Ghost";
 
-        let window = Window::new(WindowType::Toplevel);
+        let window = Window::new();
         window.set_decorated(false);
-        window.set_accept_focus(false);
-        window.set_skip_taskbar_hint(true);
-        window.set_skip_pager_hint(true);
 
         let (full_width, height) = indicator_dimensions(&placement);
 
@@ -108,156 +104,72 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
                 layer_shell::init_top_bar(&window, height);
                 window.set_size_request(-1, height);
             } else {
-                // GNOME fallback: position before realize using gravity
+                // GNOME fallback: set default size
                 window.set_default_size(full_width, height);
-                window.set_gravity(gdk::Gravity::North);
-                window.set_position(gtk3::WindowPosition::None);
             }
         } else {
-            tracing::info!("Pill mode: using Notification hint");
-            window.set_type_hint(gdk::WindowTypeHint::Notification);
-            window.set_keep_above(true);
+            tracing::info!("Pill mode");
             window.set_default_size(full_width, height);
         }
 
-        // Enable RGBA for translucency
-        if let Some(screen) = gdk::Screen::default() {
-            if let Some(visual) = screen.rgba_visual() {
-                window.set_visual(Some(&visual));
-            }
-        }
-        window.set_app_paintable(true);
-
-        // Paint background with cairo (reliable on Wayland + RGBA)
-        let bg_hex = accent_hex(&color).to_string();
-        let is_rainbow = color == "rainbow";
-        let is_topbar_draw = is_topbar;
-        let draw_start = std::time::Instant::now();
-        window.connect_draw(move |_win, cr| {
-            cr.set_operator(cairo::Operator::Source);
-            let alloc = _win.allocation();
-            let w = alloc.width() as f64;
-            let h = alloc.height() as f64;
-
-            // Guard against invalid dimensions during initial allocation
-            if w < 2.0 || h < 2.0 {
-                return glib::Propagation::Proceed;
-            }
-
-            if is_rainbow && !is_topbar_draw {
-                // Pill: cycle through rainbow colors over time
-                let elapsed = draw_start.elapsed().as_secs_f64();
-                let hue = (elapsed * 30.0) % 360.0; // cycle every 12 seconds
-                let (r, g, b) = hue_to_rgb(hue);
-                cr.set_source_rgba(r, g, b, 0.8);
-                let radius = h / 2.0;
-                cr.new_sub_path();
-                cr.arc(w - radius, radius, radius, -std::f64::consts::FRAC_PI_2, std::f64::consts::FRAC_PI_2);
-                cr.arc(radius, radius, radius, std::f64::consts::FRAC_PI_2, 3.0 * std::f64::consts::FRAC_PI_2);
-                cr.close_path();
-                let _ = cr.fill();
-            } else {
-                let (r, g, b) = hex_to_rgb(&bg_hex);
-                if is_topbar_draw {
-                    cr.set_source_rgba(r, g, b, 0.85);
-                } else {
-                    cr.set_source_rgba(r, g, b, 0.8);
-                }
-                if !is_topbar_draw {
-                    let radius = h / 2.0;
-                    cr.new_sub_path();
-                    cr.arc(w - radius, radius, radius, -std::f64::consts::FRAC_PI_2, std::f64::consts::FRAC_PI_2);
-                    cr.arc(radius, radius, radius, std::f64::consts::FRAC_PI_2, 3.0 * std::f64::consts::FRAC_PI_2);
-                    cr.close_path();
-                    let _ = cr.fill();
-                } else {
-                    cr.rectangle(0.0, 0.0, w, h);
-                    let _ = cr.fill();
-                }
-            }
-            glib::Propagation::Proceed
-        });
-
-        // CSS for text labels
-        let label_css = CssProvider::new();
+        // CSS styling for background and labels
         let accent = accent_hex(&color);
-        let _ = label_css.load_from_data(format!(
-            ".ghost-label {{ color: white; font-weight: bold; font-size: 14px; padding: 8px 16px; }}
-             .classic-label {{ color: white; font-size: 13px; padding: 8px 12px; }}
-             .recording-dot {{ color: {}; font-size: 18px; }}", accent
-        ).as_bytes());
-        if let Some(screen) = gdk::Screen::default() {
-            StyleContext::add_provider_for_screen(&screen, &label_css, gtk3::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        let css_text = if is_topbar {
+            format!(
+                "window {{ background-color: alpha({}, 0.85); }}\n\
+                 .ghost-label {{ color: white; font-weight: bold; font-size: 14px; padding: 8px 16px; }}\n\
+                 .classic-label {{ color: white; font-size: 13px; padding: 8px 12px; }}\n\
+                 .recording-dot {{ color: {}; font-size: 18px; }}", accent, accent
+            )
+        } else if is_ghost {
+            format!(
+                "window {{ background-color: alpha({}, 0.8); border-radius: 22px; }}\n\
+                 .ghost-label {{ color: white; font-weight: bold; font-size: 14px; padding: 8px 16px; }}", accent
+            )
+        } else {
+            format!(
+                "window {{ background-color: alpha(#1a1a2e, 0.85); border-radius: 12px; }}\n\
+                 .classic-label {{ color: white; font-size: 13px; padding: 8px 12px; }}\n\
+                 .recording-dot {{ color: {}; font-size: 18px; }}", accent
+            )
+        };
+
+        let css_provider = CssProvider::new();
+        css_provider.load_from_data(&css_text);
+        if let Some(display) = gdk::Display::default() {
+            gtk4::style_context_add_provider_for_display(&display, &css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
         }
 
         // Build content based on style
         let content = GtkBox::new(Orientation::Horizontal, 8);
-        content.set_halign(gtk3::Align::Center);
-        content.set_valign(gtk3::Align::Center);
+        content.set_halign(gtk4::Align::Center);
+        content.set_valign(gtk4::Align::Center);
 
         if !is_topbar {
             if is_ghost {
                 let label = Label::new(Some("🎙 Recording..."));
-                label.style_context().add_class("ghost-label");
-                content.pack_start(&label, false, false, 0);
+                label.add_css_class("ghost-label");
+                content.append(&label);
             } else {
-                // Classic: dot + text + waveform
+                // Classic: dot + text
                 let dot = Label::new(Some("●"));
-                dot.style_context().add_class("recording-dot");
-                content.pack_start(&dot, false, false, 4);
+                dot.add_css_class("recording-dot");
+                content.append(&dot);
 
                 let label = Label::new(Some("Recording"));
-                label.style_context().add_class("classic-label");
-                content.pack_start(&label, false, false, 0);
-
-                // Waveform visualization
-                let waveform = DrawingArea::new();
-                waveform.set_size_request(80, 28);
-                let _col = color.clone();
-                waveform.connect_draw(move |_area, cr| {
-                    draw_waveform(cr, 80.0, 28.0);
-                    glib::Propagation::Proceed
-                });
-                content.pack_start(&waveform, false, false, 4);
-
-                // Animate waveform by queuing redraws
-                let wf = waveform.clone();
-                glib::timeout_add_local(Duration::from_millis(100), move || {
-                    wf.queue_draw();
-                    glib::ControlFlow::Continue
-                });
+                label.add_css_class("classic-label");
+                content.append(&label);
             }
         }
 
-        window.add(&content);
+        window.set_child(Some(&content));
 
-        // Fade in: start at 0 opacity
+        // Start with 0 opacity for fade-in
         window.set_opacity(0.0);
-        window.show_all();
-
-        // Position at top center of screen (Pill only; TopBar uses layer_shell)
-        if !is_topbar {
-            if let Some(screen) = gtk3::prelude::WidgetExt::screen(&window) {
-                let display = screen.display();
-                let monitor = display.primary_monitor().unwrap_or_else(|| display.monitor(0).unwrap());
-                let geom = monitor.geometry();
-                let (x, y) = indicator_position(&placement, geom.x(), geom.y(), geom.width(), full_width);
-                window.move_(x, y);
-            }
-        } else if !layer_shell::is_supported() {
-            // GNOME fallback: move and resize before show
-            if let Some(screen) = gtk3::prelude::WidgetExt::screen(&window) {
-                let display = screen.display();
-                let monitor = display.primary_monitor().unwrap_or_else(|| display.monitor(0).unwrap());
-                let geom = monitor.geometry();
-                window.resize(geom.width(), height);
-                window.move_(geom.x(), geom.y());
-            }
-        }
+        window.present();
 
         // Fade-in animation
         let win_fade = window.clone();
-        let _is_topbar_anim = is_topbar;
         glib::timeout_add_local(Duration::from_millis(16), move || {
             let current = win_fade.opacity();
             if current < 0.95 {
@@ -268,23 +180,6 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
                 glib::ControlFlow::Break
             }
         });
-
-        // Rainbow: continuous redraw for color cycling
-        if is_rainbow {
-            let win_rainbow = window.clone();
-            let vis_rainbow = vis.clone();
-            glib::timeout_add_local(Duration::from_millis(100), move || {
-                if !vis_rainbow.load(Ordering::Relaxed) {
-                    win_rainbow.hide();
-                    return glib::ControlFlow::Break;
-                }
-                if !win_rainbow.is_visible() {
-                    return glib::ControlFlow::Break;
-                }
-                win_rainbow.queue_draw();
-                glib::ControlFlow::Continue
-            });
-        }
 
         // Pulse animation for TopBar (subtle opacity breathing)
         if is_topbar {
@@ -303,11 +198,13 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
         }
 
         // Click to toggle display mode
-        window.connect_button_press_event(move |_, _| {
-            let current = md2.load(Ordering::Relaxed);
-            md2.store(if current == MODE_FULL { MODE_MINI } else { MODE_FULL }, Ordering::Relaxed);
-            glib::Propagation::Proceed
+        let gesture = gtk4::GestureClick::new();
+        let md2_click = md2.clone();
+        gesture.connect_pressed(move |_, _n_press, _, _| {
+            let current = md2_click.load(Ordering::Relaxed);
+            md2_click.store(if current == MODE_FULL { MODE_MINI } else { MODE_FULL }, Ordering::Relaxed);
         });
+        window.add_controller(gesture);
 
         // Poll visibility and mode changes
         let win_poll = window.clone();
@@ -319,7 +216,7 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
                     win_poll.set_opacity(opacity - 0.15);
                     return glib::ControlFlow::Continue;
                 }
-                win_poll.hide();
+                win_poll.set_visible(false);
                 return glib::ControlFlow::Break;
             }
 
@@ -327,15 +224,7 @@ pub fn show(placement: &str, style: &str, color: &str) -> IndicatorHandle {
             let current_mode = md.load(Ordering::Relaxed);
             let target_width = if current_mode == MODE_MINI { 100 } else { full_width };
             if !is_topbar {
-                win_poll.set_keep_above(true);
-                win_poll.resize(target_width, height);
-                if let Some(screen) = gtk3::prelude::WidgetExt::screen(&win_poll) {
-                    let display = screen.display();
-                    let monitor = display.primary_monitor().unwrap_or_else(|| display.monitor(0).unwrap());
-                    let geom = monitor.geometry();
-                    let x = (geom.width() - target_width) / 2;
-                    win_poll.move_(x, 30);
-                }
+                win_poll.set_default_size(target_width, height);
             }
 
             glib::ControlFlow::Continue
@@ -501,27 +390,4 @@ mod tests {
         assert_eq!(x, (1920 - 240) / 2);
         assert_eq!(y, 30);
     }
-}
-
-/// Draw animated waveform bars
-fn draw_waveform(cr: &cairo::Context, width: f64, height: f64) {
-    let mid = height / 2.0;
-    let bars = 12;
-    let bar_width = width / (bars as f64 * 2.0);
-
-    cr.set_source_rgba(1.0, 1.0, 1.0, 0.8);
-
-    let seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .subsec_millis();
-
-    for i in 0..bars {
-        let phase = ((seed as f64 / 100.0) + i as f64 * 0.7).sin().abs();
-        let bar_h = 4.0 + phase * (mid - 4.0);
-        let x = i as f64 * bar_width * 2.0 + bar_width * 0.5;
-        let y = mid - bar_h;
-        cr.rectangle(x, y, bar_width, bar_h * 2.0);
-    }
-    let _ = cr.fill();
 }
