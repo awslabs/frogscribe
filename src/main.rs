@@ -99,13 +99,15 @@ fn main() -> Result<()> {
     // --history opens the history viewer
     if args.history {
         gtk4::init();
+        gtk4::Window::set_default_icon_name("frogscribe");
         history_window::show();
         glib::MainLoop::new(None, false).run();
         return Ok(());
     }
 
-    // All other modes use GTK3 (for tray). Init before anything touches GDK.
+    // All other modes use GTK4. Init before anything touches GDK.
     gtk4::init();
+    gtk4::Window::set_default_icon_name("frogscribe");
 
     if let Some(audio_path) = args.transcribe {
         let rt = tokio::runtime::Runtime::new()?;

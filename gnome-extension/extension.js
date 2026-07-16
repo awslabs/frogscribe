@@ -185,15 +185,21 @@ class FrogScribeIndicator extends PanelMenu.Button {
         if (status === 'offline') {
             this._statusItem.label.text = 'FrogScribe — Not Running';
             this._icon.opacity = 128;
-            this._icon.remove_style_class_name('frogscribe-recording');
+            this._icon.set_style('');
             this._hideTopBar();
             this._hidePill();
         } else if (isRecording) {
             this._statusItem.label.text = 'FrogScribe — Recording';
             this._icon.opacity = 255;
-            this._icon.add_style_class_name('frogscribe-recording');
             const parts = status.split(':');
             const color = parts[1] || 'teal';
+            const colorMap = {
+                teal: '#14b8a6', blue: '#3b82f6', purple: '#8b5cf6',
+                pink: '#ec4899', orange: '#f97316', green: '#22c55e',
+                yellow: '#eab308', rainbow: '#e74c3c',
+            };
+            const iconColor = colorMap[color] || colorMap.teal;
+            this._icon.set_style(`color: ${iconColor};`);
             const topbarEnabled = parts[2] === '1';
             const pillEnabled = parts[3] === '1';
             if (topbarEnabled)
@@ -207,7 +213,7 @@ class FrogScribeIndicator extends PanelMenu.Button {
         } else {
             this._statusItem.label.text = 'FrogScribe — Ready';
             this._icon.opacity = 255;
-            this._icon.remove_style_class_name('frogscribe-recording');
+            this._icon.set_style('');
             this._hideTopBar();
             this._hidePill();
         }
