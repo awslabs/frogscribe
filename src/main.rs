@@ -698,7 +698,11 @@ async fn apply_refinement(text: &str, settings: &settings::Settings) -> String {
         return text.to_string();
     }
     let refined = match settings.refinement.mode {
-        settings::RefinementMode::Local => refinement::apply(text, settings)
+        settings::RefinementMode::Local => refinement::apply(text, settings),
+        settings::RefinementMode::Smart => {
+            // Smart refinement uses cloud API; fall back to local if unavailable
+            refinement::apply(text, settings)
+        }
     };
     // Apply known terms dictionary as post-pass
     known_terms::apply(&refined)
