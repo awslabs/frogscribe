@@ -35,6 +35,7 @@ Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, s
 - **Transcription History** — Browse past transcriptions with text, timestamp, and duration
 - **D-Bus Service** — Control FrogScribe from scripts via `com.frogscribe.Daemon`
 - **CLI Mode** — Transcribe audio files from the command line
+- **Local Summarization** — Generate summaries of transcriptions using on-device BART models (no cloud)
 - **Configurable Hotkey** — Any modifier+key combo (Alt+Space, Ctrl+Shift+R, Super+Space, etc.)
 
 ## Requirements
@@ -83,11 +84,20 @@ frogscribe
 # Transcribe a file
 frogscribe --transcribe recording.wav
 
+# Transcribe and save output to a file
+frogscribe --transcribe recording.wav --output transcript.txt
+
 # Use a specific model and language
 frogscribe --transcribe audio.mp3 --model small --language ja
 
 # Translate to English
 frogscribe --transcribe audio.mp3 --translate
+
+# Summarize an existing transcript
+frogscribe --summarize transcript.txt
+
+# Summarize and write to a specific output file
+frogscribe --summarize transcript.txt --summary-output summary.txt
 ```
 
 ## D-Bus Control
@@ -158,6 +168,10 @@ context_header = true
 enabled = false
 vad_enabled = true
 silence_seconds = 30
+
+[summarization]
+enabled = false
+model = "distilbart-cnn-12-6"  # or "bart-large-cnn" for best quality
 ```
 
 ## Model Storage
@@ -198,9 +212,9 @@ frogscribe/src/
 ├── practice/mod.rs            # Practice recording for onboarding
 ├── refinement/mod.rs          # Rule-based text cleanup
 ├── settings/mod.rs            # TOML config persistence
-├── smart_refinement/mod.rs    # AI-powered text refinement (Bedrock)
 ├── streaming/mod.rs           # Streaming transcription with sliding window
-├── tests.rs                   # Test suite (83 tests)
+├── summarization/mod.rs       # Local BART-based summarization (ONNX Runtime)
+├── tests.rs                   # Test suite (92 tests)
 ├── transcript_window/mod.rs   # Long-form transcript window
 ├── transcription/mod.rs       # whisper.cpp integration via whisper-rs
 ├── ui/mod.rs                  # GTK4 settings window
