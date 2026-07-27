@@ -46,6 +46,41 @@ pub async fn transcribe_file(
     Ok(())
 }
 
+/// Transcribe and return the text (for use with --output)
+pub async fn transcribe_file_to_string(
+    path: &str,
+    model_name: &str,
+    language: &str,
+    translate: bool,
+) -> Result<String> {
+    let model_path = Settings::models_dir().join(format!("ggml-{}.bin", model_name));
+    if !model_path.exists() {
+        eprintln!("Model '{}' not found. Downloading...", model_name);
+        transcription::download_model(model_name).await?;
+    }
+
+    let samples = decode_audio_file(path)?;
+
+    let settings = Settings {
+        transcription: crate::settings::TranscriptionConfig {
+            model: model_name.to_string(),
+            language: language.to_string(),
+            translate_to_english: translate,
+            streaming: false,
+        },
+        ..Settings::default()
+    };
+
+    let engine = transcription::Engine::new(&settings).await?;
+    let audio = crate::audio::AudioData {
+        samples,
+        sample_rate: 16000,
+        duration_secs: 0.0,
+    };
+
+    engine.transcribe(&audio).await
+}
+
 /// Decode audio file to 16kHz mono f32 PCM using ffmpeg
 fn decode_audio_file(path: &str) -> Result<Vec<f32>> {
     let output = Command::new("ffmpeg")

@@ -176,7 +176,23 @@ model = "distilbart-cnn-12-6"  # or "bart-large-cnn" for best quality
 
 ## Model Storage
 
-Models are stored in `~/.local/share/frogscribe/models/`.
+Whisper models are stored in `~/.local/share/frogscribe/models/`.
+Summarization models are stored in `~/.local/share/frogscribe/summarization/`.
+
+## Summarization Models
+
+FrogScribe includes local summarization powered by BART-family models running via ONNX Runtime. All inference happens on-device — no data leaves your machine. Models are downloaded from HuggingFace on first use.
+
+| Model | Size | Speed | Quality | License |
+|-------|------|-------|---------|---------|
+| `distilbart-cnn-12-6` | ~800MB | ~2-5s | Good | Apache-2.0 |
+| `bart-large-cnn` | ~1.6GB | ~5-15s | Best | MIT |
+
+**distilbart-cnn-12-6** (default) — A distilled version of BART fine-tuned on CNN/DailyMail for summarization. Uses 6 decoder layers instead of 12, making it roughly 2x faster with only minor quality loss. Best for real-time use where speed matters.
+
+**bart-large-cnn** — The full BART-large model fine-tuned for summarization. Produces more coherent, nuanced summaries especially for longer or complex text. Choose this if summary quality is more important than speed.
+
+Both models are purpose-built for summarization (not general-purpose LLMs), making them small, fast, and focused. They work best with English text.
 
 ## Transcription History
 

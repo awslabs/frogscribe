@@ -599,4 +599,75 @@ mod tests {
             let _ = display || wayland;
         }
     }
+
+    mod summarization_tests {
+        use crate::summarization;
+        use crate::settings::{SummarizationConfig, available_summarization_models};
+
+        #[test]
+        fn test_summarization_config_defaults() {
+            let config = SummarizationConfig::default();
+            assert!(!config.enabled);
+            assert_eq!(config.model, "distilbart-cnn-12-6");
+        }
+
+        #[test]
+        fn test_available_models_not_empty() {
+            let models = available_summarization_models();
+            assert_eq!(models.len(), 2);
+            assert_eq!(models[0].0, "distilbart-cnn-12-6");
+            assert_eq!(models[1].0, "bart-large-cnn");
+        }
+
+        #[test]
+        fn test_available_models_have_descriptions() {
+            for (id, size, desc) in available_summarization_models() {
+                assert!(!id.is_empty());
+                assert!(!size.is_empty());
+                assert!(!desc.is_empty());
+            }
+        }
+
+        #[test]
+        fn test_models_dir_contains_summarization() {
+            let dir = summarization::models_dir();
+            assert!(dir.to_str().unwrap().contains("summarization"));
+        }
+
+        #[test]
+        fn test_summarize_empty_text_returns_empty() {
+            let result = summarization::summarize("", "distilbart-cnn-12-6");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "");
+        }
+
+        #[test]
+        fn test_summarize_short_text_returns_unchanged() {
+            let short = "This is a short text with less than thirty words.";
+            let result = summarization::summarize(short, "distilbart-cnn-12-6");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), short);
+        }
+
+        #[test]
+        fn test_summarize_without_model_returns_error() {
+            let long_text = "The quick brown fox jumped over the lazy dog. ".repeat(10);
+            let result = summarization::summarize(&long_text, "distilbart-cnn-12-6");
+            // Should fail because model isn't downloaded in test environment
+            assert!(result.is_err());
+            let err = result.unwrap_err().to_string();
+            assert!(err.contains("not downloaded"));
+        }
+
+        #[test]
+        fn test_is_model_downloaded_false_by_default() {
+            assert!(!summarization::is_model_downloaded("distilbart-cnn-12-6"));
+            assert!(!summarization::is_model_downloaded("bart-large-cnn"));
+        }
+
+        #[test]
+        fn test_is_model_downloaded_nonexistent_model() {
+            assert!(!summarization::is_model_downloaded("nonexistent-model-xyz"));
+        }
+    }
 }

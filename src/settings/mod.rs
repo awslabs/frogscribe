@@ -13,6 +13,8 @@ pub struct Settings {
     pub general: GeneralConfig,
     #[serde(default)]
     pub auto_transcription: AutoTranscriptionConfig,
+    #[serde(default)]
+    pub summarization: SummarizationConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +141,30 @@ impl Default for AutoTranscriptionConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SummarizationConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_summarization_model")]
+    pub model: String,
+}
+
+fn default_summarization_model() -> String { "distilbart-cnn-12-6".into() }
+
+impl Default for SummarizationConfig {
+    fn default() -> Self {
+        Self { enabled: false, model: "distilbart-cnn-12-6".into() }
+    }
+}
+
+/// Available summarization models
+pub fn available_summarization_models() -> Vec<(&'static str, &'static str, &'static str)> {
+    vec![
+        ("distilbart-cnn-12-6", "~800MB", "Fast, good quality (Apache-2.0)"),
+        ("bart-large-cnn", "~1.6GB", "Best quality, slower (MIT)"),
+    ]
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -184,6 +210,7 @@ impl Default for Settings {
                 insertion_method: InsertionMethod::TypeEveryCharacter,
             },
             auto_transcription: AutoTranscriptionConfig::default(),
+            summarization: SummarizationConfig::default(),
         }
     }
 }

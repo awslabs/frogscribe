@@ -26,13 +26,14 @@ mod refinement;
 mod settings;
 mod smart_refinement;
 mod streaming;
+mod summarization;
 mod transcription;
 mod transcript_window;
 mod ui;
 mod vocabulary;
 mod window_picker;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use gtk4::prelude::*;
 use tracing_subscriber::EnvFilter;
@@ -75,6 +76,18 @@ pub(crate) struct Args {
     /// Translate to English
     #[arg(long)]
     translate: bool,
+
+    /// Summarize a transcript text file
+    #[arg(long)]
+    summarize: Option<String>,
+
+    /// Write transcription output to this file (used with --transcribe)
+    #[arg(long)]
+    output: Option<String>,
+
+    /// Write summarization output to this file (used with --summarize, or with --transcribe when summarization is enabled)
+    #[arg(long)]
+    summary_output: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -87,6 +100,37 @@ fn main() -> Result<()> {
     // --setup runs GTK4 onboarding wizard (must NOT init GTK3)
     if args.setup {
         onboarding::gui::run_gui();
+        return Ok(());
+    }
+
+    // --summarize runs summarization on an existing transcript file
+    if let Some(file_path) = args.summarize {
+        let text = std::fs::read_to_string(&file_path)
+            .context(format!("Failed to read file: {}", file_path))?;
+        let settings = settings::Settings::load().unwrap_or_default();
+        let model = &settings.summarization.model;
+        if !summarization::is_model_downloaded(model) {
+            println!("Summarization model '{}' not downloaded. Downloading...", model);
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(summarization::download_model(model))?;
+        }
+        println!("Summarizing with model '{}'...", model);
+        match summarization::summarize(&text, model) {
+            Ok(summary) => {
+                println!("\n--- Summary ---\n{}\n", summary);
+                let out_path = if let Some(ref p) = args.summary_output {
+                    p.clone()
+                } else {
+                    format!("{}.summary.txt", file_path.trim_end_matches(".txt"))
+                };
+                std::fs::write(&out_path, &summary)?;
+                println!("Summary saved to: {}", out_path);
+            }
+            Err(e) => {
+                eprintln!("Summarization failed: {}", e);
+                std::process::exit(1);
+            }
+        }
         return Ok(());
     }
 
@@ -114,11 +158,22 @@ fn main() -> Result<()> {
         if args.diarize {
             rt.block_on(async {
                 let output = diarization::diarize_file(&audio_path, &args.model, &args.language).await?;
-                println!("{}", output);
+                if let Some(ref out_path) = args.output {
+                    std::fs::write(out_path, &output)?;
+                    println!("Transcription saved to: {}", out_path);
+                } else {
+                    println!("{}", output);
+                }
                 Ok::<(), anyhow::Error>(())
             })?;
         } else {
-            rt.block_on(cli::transcribe_file(&audio_path, &args.model, &args.language, args.translate))?;
+            let output = rt.block_on(cli::transcribe_file_to_string(&audio_path, &args.model, &args.language, args.translate))?;
+            if let Some(ref out_path) = args.output {
+                std::fs::write(out_path, &output)?;
+                println!("Transcription saved to: {}", out_path);
+            } else {
+                println!("{}", output);
+            }
         }
         return Ok(());
     }
@@ -488,9 +543,9 @@ struct TranscriptionContext {
     source: String, // "frogscribe" or "auto:<app_name>"
 }
 
-fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &TranscriptionContext) {
+fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &TranscriptionContext) -> Option<String> {
     let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/transcriptions");
-    if std::fs::create_dir_all(&dir).is_err() { return; }
+    if std::fs::create_dir_all(&dir).is_err() { return None; }
     let dt = glib::DateTime::now_local()
         .and_then(|d| d.format("%Y%m%d-%H%M%S"))
         .map(|s| s.to_string())
@@ -513,8 +568,10 @@ fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &Tran
 
     if let Err(e) = std::fs::write(&path, &content) {
         tracing::error!("Auto-save failed: {}", e);
+        None
     } else {
         tracing::info!("Auto-saved transcription to {:?}", path);
+        Some(dt)
     }
 }
 
@@ -556,10 +613,39 @@ async fn handle_stop_recording(
                         );
                     }
                     notifications::notify_transcription(&refined);
-                    if settings.general.auto_save_transcriptions {
+                    let transcript_dt = if settings.general.auto_save_transcriptions {
                         auto_save_transcription(&refined, settings, &TranscriptionContext {
                             duration_secs: audio_data.duration_secs,
                             source: source.to_string(),
+                        })
+                    } else {
+                        None
+                    };
+                    // Run summarization if enabled
+                    if settings.summarization.enabled && refined.split_whitespace().count() >= 30 {
+                        let model = settings.summarization.model.clone();
+                        let text_for_summary = refined.clone();
+                        let dt = transcript_dt.unwrap_or_else(|| {
+                            glib::DateTime::now_local()
+                                .and_then(|d| d.format("%Y%m%d-%H%M%S"))
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|_| "unknown".to_string())
+                        });
+                        std::thread::spawn(move || {
+                            match summarization::summarize(&text_for_summary, &model) {
+                                Ok(summary) if !summary.is_empty() => {
+                                    tracing::info!("Summary generated ({} chars)", summary.len());
+                                    let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/summaries");
+                                    if std::fs::create_dir_all(&dir).is_ok() {
+                                        let path = dir.join(format!("summary-{}.txt", dt));
+                                        let _ = std::fs::write(&path, &summary);
+                                        tracing::info!("Summary saved to {:?}", path);
+                                        notifications::notify_transcription("📝 Summary saved");
+                                    }
+                                }
+                                Err(e) => tracing::warn!("Summarization failed: {}", e),
+                                _ => {}
+                            }
                         });
                     }
                     if settings.general.auto_paste {

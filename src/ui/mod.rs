@@ -308,6 +308,28 @@ fn build_transcription_tab(settings: &Rc<RefCell<Settings>>) -> GtkBox {
     silence_row.append(&silence_spin);
     vbox.append(&silence_row);
 
+    vbox.append(&Separator::new(Orientation::Horizontal));
+    let sum_header = Label::new(None);
+    sum_header.set_markup("<b>Summarization</b>");
+    sum_header.set_halign(gtk4::Align::Start);
+    vbox.append(&sum_header);
+
+    let s = settings.clone();
+    vbox.append(&switch_row("Enable Summarization", "Generate a summary of transcriptions using a local AI model (no cloud required)", settings.borrow().summarization.enabled, move |a| { s.borrow_mut().summarization.enabled = a; save(&s); }));
+
+    let sum_model_row = GtkBox::new(Orientation::Horizontal, 8);
+    sum_model_row.set_tooltip_text(Some("Summarization model — larger model produces better summaries but uses more disk space and is slower"));
+    sum_model_row.append(&Label::new(Some("Model:")));
+    let sum_combo = ComboBoxText::new();
+    for (id, size, desc) in crate::settings::available_summarization_models() {
+        sum_combo.append(Some(id), &format!("{} ({}) — {}", id, size, desc));
+    }
+    sum_combo.set_active_id(Some(&settings.borrow().summarization.model));
+    let s = settings.clone();
+    sum_combo.connect_changed(move |c| { if let Some(id) = c.active_id() { s.borrow_mut().summarization.model = id.to_string(); save(&s); } });
+    sum_model_row.append(&sum_combo);
+    vbox.append(&sum_model_row);
+
     vbox
 }
 
