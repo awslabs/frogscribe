@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: wisp
-Source: https://wiki.amazon.com/bin/view/Wisp_Voice
+Upstream-Name: frogscribe
+Source: https://github.com/awslabs/frogscribe
 
 Files: *
 Copyright: 2026 Tom Callaway <spotaws@amazon.com>
