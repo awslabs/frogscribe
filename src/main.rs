@@ -24,7 +24,6 @@ mod onboarding;
 mod practice;
 mod refinement;
 mod settings;
-mod smart_refinement;
 mod streaming;
 mod summarization;
 mod transcription;
@@ -699,10 +698,7 @@ async fn apply_refinement(text: &str, settings: &settings::Settings) -> String {
         return text.to_string();
     }
     let refined = match settings.refinement.mode {
-        settings::RefinementMode::Local => refinement::apply(text, settings),
-        settings::RefinementMode::Smart => {
-            smart_refinement::refine(text, &settings.refinement.custom_vocabulary).await
-        }
+        settings::RefinementMode::Local => refinement::apply(text, settings)
     };
     // Apply known terms dictionary as post-pass
     known_terms::apply(&refined)
