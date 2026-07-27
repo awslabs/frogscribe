@@ -1,5 +1,5 @@
 Name:           frogscribe
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Voice dictation for Linux GNOME — press a hotkey, speak, text appears at cursor
 
@@ -67,6 +67,14 @@ install -Dm644 resources/ydotool-socket-perms.conf %{buildroot}%{_unitdir}/ydoto
 %{_unitdir}/ydotool.service.d/socket-perms.conf
 
 %changelog
+* Mon Jul 27 2026 Tom Callaway <spotaws@amazon.com> - 0.2.1-1
+- Local summarization with BART models (distilbart-cnn-12-6, bart-large-cnn)
+- CLI: --summarize, --output, --summary-output flags
+- Recording indicator color syncs with accent color setting
+- Set FrogScribe window icon for all GTK4 windows
+- Added ONNX Runtime and tokenizers dependencies
+- 92 tests
+
 * Tue Jul 15 2026 Tom Callaway <spotaws@amazon.com> - 0.2.0-1
 - Updated panel icon
 - README cleanup and GTK4 highlight

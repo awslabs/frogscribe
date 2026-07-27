@@ -1,3 +1,12 @@
+frogscribe (0.2.1-1) unstable; urgency=medium
+
+  * Local summarization with BART models
+  * CLI: --summarize, --output, --summary-output flags
+  * Recording indicator color syncs with accent color
+  * GTK4 window icon fix
+
+ -- Tom Callaway <spotaws@amazon.com>  Mon, 27 Jul 2026 15:18:00 -0400
+
 wisp (0.1.7-1) unstable; urgency=medium
 
   * Window picker rendered in compositor with Clutter.Clone
