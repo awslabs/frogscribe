@@ -91,9 +91,13 @@ pub async fn insert_text(text: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Sanitize: strip control characters (except newline/tab) to prevent injection
+    // Sanitize: strip control characters that could drive input injection.
+    // Newline (\n) is deliberately preserved to support multi-line / long-form
+    // dictation; tab and every other control character are removed. A preserved
+    // newline still acts as Enter in a focused terminal (see T1 in
+    // docs/THREAT_MODEL.md), which is why the window picker defaults to on.
     let text: String = text.chars().filter(|c| {
-        !c.is_control() || *c == '\n' || *c == '\t'
+        !c.is_control() || *c == '\n'
     }).collect();
     let text = text.trim();
     if text.is_empty() {

@@ -211,11 +211,11 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Likelihood:** Medium
 **Impact:** High (arbitrary command execution)
 **Mitigation implemented:**
-- Control character sanitization strips all non-printable characters before insertion
+- Control character sanitization strips non-printable/control characters before insertion, with the single exception of newline (`\n`), which is preserved to support multi-line and long-form dictation (tab and all other control characters are removed)
 - Window picker (default enabled) requires user confirmation of target
 - Auto-transcription is off by default
 
-**Residual risk:** If user disables window picker and has a terminal focused, transcribed text could include shell-meaningful characters (`;`, `|`, `$`). Newline characters are intentionally allowed.
+**Residual risk:** Newline is intentionally preserved for multi-line dictation, and a newline acts as Enter when inserted. So if the user disables the window picker and has a terminal focused, transcribed text could both execute (via the trailing/embedded newline) and contain shell-meaningful characters (`;`, `|`, `$`). The window picker (default on) requires the user to confirm the target window, which is the primary mitigation for this path.
 
 ### T2: Unauthenticated D-Bus Access
 **STRIDE:** Elevation of Privilege
