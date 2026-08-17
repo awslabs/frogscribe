@@ -315,7 +315,24 @@ fn build_transcription_tab(settings: &Rc<RefCell<Settings>>) -> GtkBox {
     vbox.append(&sum_header);
 
     let s = settings.clone();
-    vbox.append(&switch_row("Enable Summarization", "Generate a summary of transcriptions using a local AI model (no cloud required)", settings.borrow().summarization.enabled, move |a| { s.borrow_mut().summarization.enabled = a; save(&s); }));
+    let space_note = if !crate::summarization::is_model_downloaded(&settings.borrow().summarization.model) {
+        let avail = crate::summarization::available_space_bytes();
+        if avail < crate::summarization::REQUIRED_SPACE_BYTES {
+            format!(" ⚠️ Need {:.1} GB free, only {:.1} GB available",
+                crate::summarization::REQUIRED_SPACE_BYTES as f64 / 1_073_741_824.0,
+                avail as f64 / 1_073_741_824.0)
+        } else {
+            format!(" (model download: ~2.3 GB, {:.1} GB available)", avail as f64 / 1_073_741_824.0)
+        }
+    } else {
+        " (model downloaded ✓)".to_string()
+    };
+    vbox.append(&switch_row(
+        &format!("Enable Summarization{}", space_note),
+        "Generate structured meeting notes from transcriptions using a local AI model (no cloud required). Requires ~3 GB disk space for the model.",
+        settings.borrow().summarization.enabled,
+        move |a| { s.borrow_mut().summarization.enabled = a; save(&s); },
+    ));
 
     let sum_model_row = GtkBox::new(Orientation::Horizontal, 8);
     sum_model_row.set_tooltip_text(Some("Summarization model — larger model produces better summaries but uses more disk space and is slower"));

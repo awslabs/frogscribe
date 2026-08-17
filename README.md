@@ -9,7 +9,7 @@
 
 Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, speak, and your words are transcribed and inserted at the cursor using on-device AI. Like a frog catching flies — quick, precise, and always listening when you need it.
 
-**Key technologies:** GTK4, whisper.cpp (OpenBLAS + Vulkan), GNOME Shell Extension, PipeWire/PulseAudio, D-Bus, evdev
+**Key technologies:** GTK4, whisper.cpp (OpenBLAS + Vulkan), Phi-3 Mini 128K (llama.cpp), GNOME Shell Extension, PipeWire/PulseAudio, D-Bus, evdev
 
 ## Features
 
@@ -35,7 +35,8 @@ Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, s
 - **Transcription History** — Browse past transcriptions with text, timestamp, and duration
 - **D-Bus Service** — Control FrogScribe from scripts via `com.frogscribe.Daemon`
 - **CLI Mode** — Transcribe audio files from the command line
-- **Local Summarization** — Generate summaries of transcriptions using on-device BART models (no cloud)
+- **Local Summarization** — Generate structured meeting notes using on-device Phi-3 Mini 128K (no cloud)
+- **Non-blocking Pipeline** — Start a new recording while previous transcription/summarization processes in background
 - **Configurable Hotkey** — Any modifier+key combo (Alt+Space, Ctrl+Shift+R, Super+Space, etc.)
 
 ## Requirements
@@ -62,10 +63,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 
 # Install system dependencies (Fedora)
-sudo dnf install rust cargo clang-devel gtk4-devel \
+sudo dnf install rust cargo clang-devel gtk4-devel cmake \
     openssl-devel pango-devel gdk-pixbuf2-devel cairo-devel glib2-devel atk-devel \
     gtk-layer-shell-devel openblas-devel vulkan-headers vulkan-loader-devel \
-    ffmpeg-free ydotool
+    spirv-headers-devel glslang glslc ffmpeg-free ydotool
 
 # Build
 export BLAS_INCLUDE_DIRS=/usr/include/openblas
@@ -171,7 +172,7 @@ silence_seconds = 30
 
 [summarization]
 enabled = false
-model = "distilbart-cnn-12-6"  # or "bart-large-cnn" for best quality
+model = "phi-3-mini"  # Phi-3 Mini 128K Instruct for structured meeting notes
 ```
 
 ## Model Storage
@@ -181,18 +182,20 @@ Summarization models are stored in `~/.local/share/frogscribe/summarization/`.
 
 ## Summarization Models
 
-FrogScribe includes local summarization powered by BART-family models running via ONNX Runtime. All inference happens on-device — no data leaves your machine. Models are downloaded from HuggingFace on first use.
+FrogScribe includes local summarization powered by Phi-3 Mini 128K Instruct via llama.cpp (with Vulkan GPU acceleration). All inference happens on-device — no data leaves your machine. The model is downloaded from HuggingFace on first use.
 
-| Model | Size | Speed | Quality | License |
-|-------|------|-------|---------|---------|
-| `distilbart-cnn-12-6` | ~800MB | ~2-5s | Good | Apache-2.0 |
-| `bart-large-cnn` | ~1.6GB | ~5-15s | Best | MIT |
+| Model | Size | Context | Speed | License |
+|-------|------|---------|-------|---------|
+| `phi-3-mini` (Phi-3 Mini 128K Instruct Q4_K_M) | ~2.3GB | 128K tokens | ~30 tok/s (GPU) | MIT |
 
-**distilbart-cnn-12-6** (default) — A distilled version of BART fine-tuned on CNN/DailyMail for summarization. Uses 6 decoder layers instead of 12, making it roughly 2x faster with only minor quality loss. Best for real-time use where speed matters.
+Phi-3 Mini 128K is a 3.8B parameter instruction-following model with a 128K token context window, meaning it can process full-length meeting transcripts (1+ hours) without truncation. It generates structured meeting notes including:
+- Meeting overview and context
+- Key topics discussed with details
+- Decisions made
+- Action items with owners
+- Deadlines mentioned
 
-**bart-large-cnn** — The full BART-large model fine-tuned for summarization. Produces more coherent, nuanced summaries especially for longer or complex text. Choose this if summary quality is more important than speed.
-
-Both models are purpose-built for summarization (not general-purpose LLMs), making them small, fast, and focused. They work best with English text.
+The model runs with Vulkan GPU acceleration when available (NVIDIA, Intel Arc, AMD), falling back to CPU. Processing happens in the background — you can start a new recording while the previous session's summary is being generated.
 
 ## Transcription History
 
@@ -229,7 +232,7 @@ frogscribe/src/
 ├── refinement/mod.rs          # Rule-based text cleanup
 ├── settings/mod.rs            # TOML config persistence
 ├── streaming/mod.rs           # Streaming transcription with sliding window
-├── summarization/mod.rs       # Local BART-based summarization (ONNX Runtime)
+├── summarization/mod.rs       # Local Phi-3 summarization (llama.cpp, Vulkan)
 ├── tests.rs                   # Test suite (92 tests)
 ├── transcript_window/mod.rs   # Long-form transcript window
 ├── transcription/mod.rs       # whisper.cpp integration via whisper-rs

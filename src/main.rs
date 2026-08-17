@@ -141,7 +141,7 @@ fn main() -> Result<()> {
 
     // --history opens the history viewer
     if args.history {
-        gtk4::init();
+        let _ = gtk4::init();
         gtk4::Window::set_default_icon_name("frogscribe");
         history_window::show();
         glib::MainLoop::new(None, false).run();
@@ -149,7 +149,7 @@ fn main() -> Result<()> {
     }
 
     // All other modes use GTK4. Init before anything touches GDK.
-    gtk4::init();
+    let _ = gtk4::init();
     gtk4::Window::set_default_icon_name("frogscribe");
 
     if let Some(audio_path) = args.transcribe {
@@ -596,87 +596,111 @@ async fn handle_stop_recording(
     tracing::info!("Recording stopped");
     match recorder.stop() {
         Ok(Some(audio_data)) => {
-            // Use streaming result if available, otherwise transcribe from scratch
-            let transcribe_result = if let Some(text) = streaming_text {
+            // If we have streaming text, use it immediately (no transcription needed)
+            let text_ready = streaming_text.clone();
+
+            // Clone what we need for the background task
+            let settings = settings.clone();
+            let source = source.to_string();
+            let engine_model = settings.transcription.model.clone();
+            let engine_language = settings.transcription.language.clone();
+
+            // Transcription (must happen before we can do anything else)
+            let transcribe_result = if let Some(text) = text_ready {
                 Ok(text)
             } else {
                 engine.transcribe(&audio_data).await
             };
+
             match transcribe_result {
                 Ok(text) => {
-                    let refined = apply_refinement(&text, settings).await;
+                    let refined = apply_refinement(&text, &settings).await;
+
+                    // Save to history (quick, keep synchronous)
                     if settings.general.history_enabled {
                         let _ = history_store.add(
                             &refined, audio_data.duration_secs,
-                            &settings.transcription.model, &settings.transcription.language,
+                            &engine_model, &engine_language,
                         );
                     }
+
                     notifications::notify_transcription(&refined);
-                    let transcript_dt = if settings.general.auto_save_transcriptions {
-                        auto_save_transcription(&refined, settings, &TranscriptionContext {
-                            duration_secs: audio_data.duration_secs,
-                            source: source.to_string(),
-                        })
-                    } else {
-                        None
-                    };
-                    // Run summarization if enabled
-                    if settings.summarization.enabled && refined.split_whitespace().count() >= 30 {
-                        let model = settings.summarization.model.clone();
-                        let text_for_summary = refined.clone();
-                        let dt = transcript_dt.unwrap_or_else(|| {
-                            glib::DateTime::now_local()
-                                .and_then(|d| d.format("%Y%m%d-%H%M%S"))
-                                .map(|s| s.to_string())
-                                .unwrap_or_else(|_| "unknown".to_string())
-                        });
-                        std::thread::spawn(move || {
-                            match summarization::summarize(&text_for_summary, &model) {
-                                Ok(summary) if !summary.is_empty() => {
-                                    tracing::info!("Summary generated ({} chars)", summary.len());
-                                    let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/summaries");
-                                    if std::fs::create_dir_all(&dir).is_ok() {
-                                        let path = dir.join(format!("summary-{}.txt", dt));
-                                        let _ = std::fs::write(&path, &summary);
-                                        tracing::info!("Summary saved to {:?}", path);
-                                        notifications::notify_transcription("📝 Summary saved");
+
+                    // Spawn the rest (save, summarize, paste) in background
+                    let refined_bg = refined.clone();
+                    let settings_bg = settings.clone();
+                    let source_bg = source.clone();
+                    let duration = audio_data.duration_secs;
+
+                    tokio::spawn(async move {
+                        let transcript_dt = if settings_bg.general.auto_save_transcriptions {
+                            auto_save_transcription(&refined_bg, &settings_bg, &TranscriptionContext {
+                                duration_secs: duration,
+                                source: source_bg.clone(),
+                            })
+                        } else {
+                            None
+                        };
+
+                        // Summarization (runs in its own thread since it's CPU-bound)
+                        if settings_bg.summarization.enabled && refined_bg.split_whitespace().count() >= 30 {
+                            let model = settings_bg.summarization.model.clone();
+                            let text_for_summary = refined_bg.clone();
+                            let dt = transcript_dt.unwrap_or_else(|| {
+                                glib::DateTime::now_local()
+                                    .and_then(|d| d.format("%Y%m%d-%H%M%S"))
+                                    .map(|s| s.to_string())
+                                    .unwrap_or_else(|_| "unknown".to_string())
+                            });
+                            std::thread::spawn(move || {
+                                match summarization::summarize(&text_for_summary, &model) {
+                                    Ok(summary) if !summary.is_empty() => {
+                                        tracing::info!("Summary generated ({} chars)", summary.len());
+                                        let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/summaries");
+                                        if std::fs::create_dir_all(&dir).is_ok() {
+                                            let path = dir.join(format!("summary-{}.txt", dt));
+                                            let _ = std::fs::write(&path, &summary);
+                                            tracing::info!("Summary saved to {:?}", path);
+                                            notifications::notify_transcription("📝 Summary saved");
+                                        }
                                     }
-                                }
-                                Err(e) => tracing::warn!("Summarization failed: {}", e),
-                                _ => {}
-                            }
-                        });
-                    }
-                    if settings.general.auto_paste {
-                        if settings.general.use_window_picker {
-                            // Show picker, activate chosen window, then paste
-                            let text_for_picker = refined.clone();
-                            let auto_submit = settings.general.auto_submit;
-                            tokio::task::spawn_blocking(move || {
-                                if let Some(win_id) = window_picker::show_picker(&text_for_picker) {
-                                    window_picker::activate_window(&win_id);
-                                    std::thread::sleep(std::time::Duration::from_millis(300));
-                                    let rt = tokio::runtime::Handle::current();
-                                    rt.block_on(async {
-                                        if let Err(e) = insertion::insert_text(&text_for_picker).await {
-                                            tracing::error!("Insertion error: {}", e);
-                                        }
-                                        if auto_submit {
-                                            let _ = insertion::press_enter().await;
-                                        }
-                                    });
+                                    Err(e) => tracing::warn!("Summarization failed: {}", e),
+                                    _ => {}
                                 }
                             });
-                        } else {
-                            if let Err(e) = insertion::insert_text(&refined).await {
-                                tracing::error!("Insertion error: {}", e);
-                                notifications::notify_error(&format!("Insertion failed: {}", e));
-                            }
-                            if settings.general.auto_submit {
-                                let _ = insertion::press_enter().await;
+                        }
+
+                        // Paste into target window
+                        if settings_bg.general.auto_paste {
+                            if settings_bg.general.use_window_picker {
+                                let text_for_picker = refined_bg.clone();
+                                let auto_submit = settings_bg.general.auto_submit;
+                                tokio::task::spawn_blocking(move || {
+                                    if let Some(win_id) = window_picker::show_picker(&text_for_picker) {
+                                        window_picker::activate_window(&win_id);
+                                        std::thread::sleep(std::time::Duration::from_millis(300));
+                                        let rt = tokio::runtime::Handle::current();
+                                        rt.block_on(async {
+                                            if let Err(e) = insertion::insert_text(&text_for_picker).await {
+                                                tracing::error!("Insertion error: {}", e);
+                                            }
+                                            if auto_submit {
+                                                let _ = insertion::press_enter().await;
+                                            }
+                                        });
+                                    }
+                                }).await.ok();
+                            } else {
+                                if let Err(e) = insertion::insert_text(&refined_bg).await {
+                                    tracing::error!("Insertion error: {}", e);
+                                    notifications::notify_error(&format!("Insertion failed: {}", e));
+                                }
+                                if settings_bg.general.auto_submit {
+                                    let _ = insertion::press_enter().await;
+                                }
                             }
                         }
-                    }
+                    });
                 }
                 Err(e) => {
                     tracing::error!("Transcription error: {}", e);
@@ -691,8 +715,6 @@ async fn handle_stop_recording(
         }
     }
 }
-
-/// Apply refinement based on configured mode (Local rules or Smart AI via Bedrock Claude)
 async fn apply_refinement(text: &str, settings: &settings::Settings) -> String {
     if !settings.refinement.enabled || text.is_empty() {
         return text.to_string();

@@ -1,3 +1,11 @@
+frogscribe (0.2.2-1) unstable; urgency=medium
+
+  * Non-blocking processing pipeline
+  * Phi-3 128K summarization with Vulkan GPU acceleration
+  * Updated packaging and documentation
+
+ -- Tom Callaway <spotaws@amazon.com>  Mon, 11 Aug 2026 08:47:00 -0400
+
 frogscribe (0.2.1-1) unstable; urgency=medium
 
   * Local summarization with BART models

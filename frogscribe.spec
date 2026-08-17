@@ -1,5 +1,5 @@
 Name:           frogscribe
-Version:        0.2.1
+Version:        0.2.2
 Release:        1%{?dist}
 Summary:        Voice dictation for Linux GNOME — press a hotkey, speak, text appears at cursor
 
@@ -7,8 +7,9 @@ License:        Apache-2.0
 URL:            https://github.com/awslabs/frogscribe
 Source0:        frogscribe-%{version}.tar.gz
 
-BuildRequires:  rust >= 1.70
+BuildRequires:  rust >= 1.85
 BuildRequires:  cargo
+BuildRequires:  cmake
 BuildRequires:  clang-devel
 BuildRequires:  gtk4-devel
 BuildRequires:  openssl-devel
@@ -21,6 +22,9 @@ BuildRequires:  gtk-layer-shell-devel
 BuildRequires:  openblas-devel
 BuildRequires:  vulkan-headers
 BuildRequires:  vulkan-loader-devel
+BuildRequires:  spirv-headers-devel
+BuildRequires:  glslang
+BuildRequires:  glslc
 
 Requires:       pulseaudio-utils
 Requires:       ydotool
@@ -36,8 +40,9 @@ Recommends:     python3-pyannote-audio
 FrogScribe is a voice dictation application for Linux GNOME desktops. Press a
 global hotkey, speak, and your words are transcribed using on-device AI
 (whisper.cpp) and inserted at the cursor position. Features include
-hold-to-talk, streaming transcription, long-form dictation, text
-refinement, speaker diarization, and a system tray indicator.
+hold-to-talk, streaming live preview, long-form dictation, automatic
+transcription, local AI summarization via Phi-3, text refinement,
+and a GNOME Shell extension panel indicator.
 
 %prep
 %autosetup -n %{name}-%{version}

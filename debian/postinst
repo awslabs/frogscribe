@@ -6,14 +6,14 @@ if [ "$1" = "configure" ]; then
     if [ -n "$SUDO_USER" ]; then
         if ! id -nG "$SUDO_USER" | grep -qw input; then
             usermod -aG input "$SUDO_USER"
-            echo "wisp: Added $SUDO_USER to 'input' group (needed for global hotkeys)."
-            echo "wisp: Please log out and back in for the group change to take effect."
+            echo "frogscribe: Added $SUDO_USER to 'input' group (needed for global hotkeys)."
+            echo "frogscribe: Please log out and back in for the group change to take effect."
         fi
     fi
 
     # Install ydotoold systemd service if not already present
     if [ ! -f /etc/systemd/system/ydotoold.service ] && [ ! -f /usr/lib/systemd/system/ydotoold.service ]; then
-        cp /usr/share/wisp/ydotoold.service /etc/systemd/system/ydotoold.service
+        cp /usr/share/frogscribe/ydotoold.service /etc/systemd/system/ydotoold.service
         systemctl daemon-reload
         systemctl enable ydotoold.service
     fi
@@ -28,11 +28,11 @@ if [ "$1" = "configure" ]; then
 
     # Reload udev rules for /dev/uinput permissions
     udevadm control --reload-rules && udevadm trigger
-    echo "wisp: udev rules reloaded for /dev/uinput"
+    echo "frogscribe: udev rules reloaded for /dev/uinput"
 
     # Start/restart ydotoold
     systemctl restart ydotoold.service 2>/dev/null || true
-    echo "wisp: ydotoold service configured and started"
+    echo "frogscribe: ydotoold service configured and started"
 fi
 
 #DEBHELPER#

@@ -608,15 +608,14 @@ mod tests {
         fn test_summarization_config_defaults() {
             let config = SummarizationConfig::default();
             assert!(!config.enabled);
-            assert_eq!(config.model, "distilbart-cnn-12-6");
+            assert_eq!(config.model, "phi-3-mini");
         }
 
         #[test]
         fn test_available_models_not_empty() {
             let models = available_summarization_models();
-            assert_eq!(models.len(), 2);
-            assert_eq!(models[0].0, "distilbart-cnn-12-6");
-            assert_eq!(models[1].0, "bart-large-cnn");
+            assert_eq!(models.len(), 1);
+            assert_eq!(models[0].0, "phi-3-mini");
         }
 
         #[test]

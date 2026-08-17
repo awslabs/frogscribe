@@ -149,19 +149,18 @@ pub struct SummarizationConfig {
     pub model: String,
 }
 
-fn default_summarization_model() -> String { "distilbart-cnn-12-6".into() }
+fn default_summarization_model() -> String { "phi-3-mini".into() }
 
 impl Default for SummarizationConfig {
     fn default() -> Self {
-        Self { enabled: false, model: "distilbart-cnn-12-6".into() }
+        Self { enabled: false, model: "phi-3-mini".into() }
     }
 }
 
 /// Available summarization models
 pub fn available_summarization_models() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
-        ("distilbart-cnn-12-6", "~800MB", "Fast, good quality (Apache-2.0)"),
-        ("bart-large-cnn", "~1.6GB", "Best quality, slower (MIT)"),
+        ("phi-3-mini", "~2.3GB", "Detailed meeting notes, structured output (MIT)"),
     ]
 }
 
