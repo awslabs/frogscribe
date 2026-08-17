@@ -18,6 +18,7 @@ mod languages;
 mod live_preview;
 mod longform;
 mod model_doctor;
+mod model_integrity;
 mod models;
 mod notifications;
 mod onboarding;

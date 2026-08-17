@@ -62,6 +62,9 @@ notify = "6"
 # SHA256 for model integrity
 sha2 = "0.10"
 
+# SHA1 for verifying non-LFS Hugging Face files (git blob ids); already in tree transitively
+sha1 = "0.10"
+
 # Futures utilities
 futures = "0.3"
 

@@ -80,6 +80,12 @@ pub async fn download_model(model_name: &str) -> Result<()> {
     eprintln!("Downloading Phi-3 Mini Q4 GGUF (~2.3 GB)...");
 
     let client = reqwest::Client::new();
+
+    // Fetch the authoritative SHA256 from Hugging Face before downloading.
+    let expected = crate::model_integrity::fetch_expected_for_url(&client, MODEL_URL)
+        .await
+        .context("Failed to fetch expected model checksum from Hugging Face")?;
+
     let response = client.get(MODEL_URL).send().await
         .context("Failed to download model")?;
 
@@ -87,13 +93,15 @@ pub async fn download_model(model_name: &str) -> Result<()> {
         anyhow::bail!("Download failed: HTTP {}", response.status());
     }
 
-    let total_size = response.content_length().unwrap_or(0);
+    let total_size = response.content_length().unwrap_or(expected.size);
     let mut downloaded: u64 = 0;
     let mut file = std::fs::File::create(&path)?;
     let mut stream = response.bytes_stream();
 
     use futures::StreamExt;
+    use sha2::Digest;
     use std::io::Write;
+    let mut hasher = sha2::Sha256::new();
 
     if total_size > 0 {
         eprint!("  0%");
@@ -102,6 +110,7 @@ pub async fn download_model(model_name: &str) -> Result<()> {
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.context("Download interrupted")?;
         file.write_all(&chunk)?;
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
         if total_size > 0 {
             let pct = (downloaded * 100) / total_size;
@@ -109,13 +118,15 @@ pub async fn download_model(model_name: &str) -> Result<()> {
         }
     }
     eprintln!("\n  ✓ Download complete");
+    file.flush()?;
+    drop(file);
 
-    // Verify size
-    let actual_size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-    if actual_size < 1_000_000_000 {
-        let _ = std::fs::remove_file(&path);
-        anyhow::bail!("Downloaded file too small ({} bytes). Removed.", actual_size);
-    }
+    // Verify integrity against the checksum published by Hugging Face. Removes
+    // the file and errors out on any mismatch (possible tampering/MITM).
+    eprintln!("  Verifying checksum...");
+    let actual = format!("{:x}", hasher.finalize());
+    crate::model_integrity::verify_downloaded_sha256(&path, &actual, &expected)?;
+    eprintln!("  ✓ Checksum verified");
 
     Ok(())
 }

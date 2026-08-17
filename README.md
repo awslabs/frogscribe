@@ -180,6 +180,16 @@ model = "phi-3-mini"  # Phi-3 Mini 128K Instruct for structured meeting notes
 Whisper models are stored in `~/.local/share/frogscribe/models/`.
 Summarization models are stored in `~/.local/share/frogscribe/summarization/`.
 
+## Model Download Integrity
+
+All model files are downloaded from Hugging Face over HTTPS and verified before use. Before each download, FrogScribe fetches the file's authoritative content digest and size from Hugging Face's TLS-protected metadata API, then checks the downloaded bytes against it:
+
+- Git-LFS tracked files (all large model weights) are verified against the published **SHA256** (`lfs.oid`).
+- Non-LFS files (e.g. `tokenizer.json`) are verified against the published **Git blob id** (`SHA1("blob " + len + "\0" + content)`).
+- The exact published file size is also checked.
+
+On any size or digest mismatch, the file is deleted and the operation aborts — mitigating tampering by a compromised CDN, cache, or on-path (MITM) attacker. See `src/model_integrity/`.
+
 ## Summarization Models
 
 FrogScribe includes local summarization powered by Phi-3 Mini 128K Instruct via llama.cpp (with Vulkan GPU acceleration). All inference happens on-device — no data leaves your machine. The model is downloaded from HuggingFace on first use.
@@ -225,6 +235,7 @@ frogscribe/src/
 ├── live_preview/mod.rs        # Tabbed live streaming preview window
 ├── longform/mod.rs            # Long-form continuous dictation sessions
 ├── model_doctor/mod.rs        # Model integrity checking and repair
+├── model_integrity/mod.rs     # Hugging Face download checksum verification (SHA256 / Git-blob)
 ├── models/mod.rs              # Model metadata, download management
 ├── notifications/mod.rs       # Desktop notifications via notify-send
 ├── onboarding/                # First-run setup wizard (GTK4)
@@ -233,7 +244,7 @@ frogscribe/src/
 ├── settings/mod.rs            # TOML config persistence
 ├── streaming/mod.rs           # Streaming transcription with sliding window
 ├── summarization/mod.rs       # Local Phi-3 summarization (llama.cpp, Vulkan)
-├── tests.rs                   # Test suite (92 tests)
+├── tests.rs                   # Test suite (98 tests)
 ├── transcript_window/mod.rs   # Long-form transcript window
 ├── transcription/mod.rs       # whisper.cpp integration via whisper-rs
 ├── ui/mod.rs                  # GTK4 settings window

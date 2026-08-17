@@ -145,9 +145,22 @@ pub async fn download_model(model_name: &str) -> Result<PathBuf> {
 
     tracing::info!("Downloading model from: {}", url);
 
-    let response = reqwest::get(&url).await.context("Failed to download model")?;
+    let client = reqwest::Client::new();
+
+    // Fetch the authoritative SHA256 from Hugging Face before downloading.
+    let expected = crate::model_integrity::fetch_expected_for_url(&client, &url)
+        .await
+        .context("Failed to fetch expected model checksum from Hugging Face")?;
+
+    let response = client.get(&url).send().await.context("Failed to download model")?;
     let bytes = response.bytes().await?;
     std::fs::write(&dest, &bytes)?;
+
+    // Verify integrity against the checksum published by Hugging Face. Removes
+    // the file and errors out on any mismatch (possible tampering/MITM).
+    use sha2::Digest;
+    let actual = format!("{:x}", sha2::Sha256::digest(&bytes));
+    crate::model_integrity::verify_downloaded_sha256(&dest, &actual, &expected)?;
 
     tracing::info!("Model downloaded to: {:?}", dest);
     Ok(dest)

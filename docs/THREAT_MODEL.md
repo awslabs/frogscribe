@@ -1,7 +1,7 @@
 # FrogScribe Threat Model
 
-**Document Version:** 1.0
-**Date:** July 15, 2026
+**Document Version:** 1.1
+**Date:** July 15, 2026 (updated August 17, 2026)
 **Author:** Tom Callaway
 **Status:** Initial Review
 
@@ -296,14 +296,18 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 ### T9: Model Download Integrity
 **STRIDE:** Tampering
-**Description:** Whisper model files are downloaded from the internet. A MITM attack could substitute a malicious model.
+**Description:** Model files (whisper GGML weights and summarization models) are downloaded from Hugging Face over the internet. A MITM attacker, a compromised/poisoned CDN, or a malicious caching proxy could substitute a tampered or corrupted model.
 **Likelihood:** Low (requires MITM on HTTPS connection)
 **Impact:** Medium (corrupted transcription, potential model-level exploits)
 **Mitigation implemented:**
 - Downloads use HTTPS (reqwest with TLS)
-- Model health check validates file sizes
+- Every downloaded file is verified against the authoritative content digest that Hugging Face publishes via its TLS-protected metadata API (`paths-info`), fetched before the download begins:
+  - Git-LFS tracked files (all large model weights) are verified against the published SHA256 (`lfs.oid`)
+  - Non-LFS files (e.g. `tokenizer.json`) are verified against the published Git blob id (`SHA1("blob " + len + "\0" + content)`)
+- The exact file size published by the API is also checked (exact-equality)
+- On any size or digest mismatch the file is deleted and the operation aborts with an error flagging possible tampering (`src/model_integrity/`)
 
-**Residual risk:** No SHA256 verification of downloaded models against known-good hashes. Consider adding hash verification.
+**Residual risk:** Verification trusts the Hugging Face metadata API (TLS to `huggingface.co`). It defends against a tampered file CDN, cache, or on-path attacker, but not against Hugging Face itself serving malicious content, nor against a simultaneous compromise of both the API and the file CDN using a valid `huggingface.co` certificate. Pinning downloads to a specific commit revision would further narrow the window for upstream content changes.
 
 ### T10: Denial of Service via D-Bus Flooding
 **STRIDE:** Denial of Service
@@ -329,6 +333,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T3 | Socket permissions via systemd drop-in | ✅ Implemented |
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
 | T6 | Opt-in storage (history/auto-save off by default) | ✅ Implemented |
+| T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
 
 ### Accepted Risks
 
@@ -343,8 +348,8 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 | Priority | Improvement |
 |----------|-------------|
-| Medium | Add SHA256 verification for model downloads |
 | Medium | Move ydotool socket to `XDG_RUNTIME_DIR` by default |
+| Low | Pin model downloads to a specific Hugging Face commit revision |
 | Low | Add optional encryption-at-rest for transcription history |
 | Low | Implement D-Bus rate limiting |
 | Low | Consider a minimal privileged helper for hotkey detection (avoid broad `input` group) |
@@ -360,6 +365,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | 2026-07-06 | Automated security scan | Full codebase | 15 findings (2 Critical, 4 High, 5 Medium, 4 Low) |
 | 2026-07-06 | Manual remediation | Critical + High findings | Control char sanitization, D-Bus auth implemented |
 | 2026-07-10 | Dependency audit | Cargo dependencies | GTK4 migration resolved RUSTSEC-2024-0394 |
+| 2026-08-17 | Manual remediation | Model download supply chain | SHA256 / Git-blob digest + size verification for all model downloads (T9) |
 
 ### Open Questions
 

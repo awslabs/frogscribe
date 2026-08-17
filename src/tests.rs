@@ -669,4 +669,178 @@ mod tests {
             assert!(!summarization::is_model_downloaded("nonexistent-model-xyz"));
         }
     }
+
+    mod model_integrity_tests {
+        use crate::model_integrity::{
+            git_blob_sha1_file, parse_hf_url, sha256_file, verify_downloaded_sha256,
+            verify_file, ExpectedDigest, ExpectedIntegrity,
+        };
+        use std::path::PathBuf;
+
+        // Authoritative vectors, computed independently with `sha256sum` and
+        // `git hash-object` for the byte string below.
+        const CONTENT: &[u8] = b"frogscribe integrity test payload"; // 33 bytes
+        const CONTENT_LEN: u64 = 33;
+        const CONTENT_SHA256: &str =
+            "20ba689d732d4356eb63f1aff9ddfa1166d9a9e419a0ba0be06dba521f92121b";
+        const CONTENT_GIT_BLOB_SHA1: &str = "f289c0d4f3d4e5eaa5a92acf58ace6004e2ef5c4";
+
+        fn temp_path(tag: &str) -> PathBuf {
+            let mut p = std::env::temp_dir();
+            p.push(format!("frogscribe_integrity_{}_{}", tag, std::process::id()));
+            p
+        }
+
+        fn write_content(path: &PathBuf) {
+            std::fs::write(path, CONTENT).unwrap();
+        }
+
+        #[test]
+        fn test_parse_hf_url_valid() {
+            let (repo, rev, path) = parse_hf_url(
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+            )
+            .unwrap();
+            assert_eq!(repo, "ggerganov/whisper.cpp");
+            assert_eq!(rev, "main");
+            assert_eq!(path, "ggml-base.bin");
+        }
+
+        #[test]
+        fn test_parse_hf_url_subdirectory_path() {
+            // Files in a subdirectory (e.g. onnx/) must keep the full path.
+            let (repo, rev, path) = parse_hf_url(
+                "https://huggingface.co/Xenova/distilbart-cnn-12-6/resolve/main/onnx/encoder_model.onnx",
+            )
+            .unwrap();
+            assert_eq!(repo, "Xenova/distilbart-cnn-12-6");
+            assert_eq!(rev, "main");
+            assert_eq!(path, "onnx/encoder_model.onnx");
+        }
+
+        #[test]
+        fn test_parse_hf_url_rejects_invalid() {
+            assert!(parse_hf_url("https://example.com/foo/resolve/main/bar.bin").is_none());
+            assert!(parse_hf_url("https://huggingface.co/only/repo").is_none());
+            assert!(parse_hf_url("not even a url").is_none());
+        }
+
+        #[test]
+        fn test_sha256_file_matches_known_vector() {
+            let p = temp_path("sha256");
+            write_content(&p);
+            assert_eq!(sha256_file(&p).unwrap(), CONTENT_SHA256);
+            let _ = std::fs::remove_file(&p);
+        }
+
+        #[test]
+        fn test_git_blob_sha1_matches_known_vector() {
+            let p = temp_path("gitblob");
+            write_content(&p);
+            assert_eq!(
+                git_blob_sha1_file(&p, CONTENT_LEN).unwrap(),
+                CONTENT_GIT_BLOB_SHA1
+            );
+            let _ = std::fs::remove_file(&p);
+        }
+
+        #[test]
+        fn test_verify_downloaded_sha256_success_keeps_file() {
+            let p = temp_path("dl_ok");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::Sha256(CONTENT_SHA256.to_string()),
+                size: CONTENT_LEN,
+            };
+            assert!(verify_downloaded_sha256(&p, CONTENT_SHA256, &expected).is_ok());
+            assert!(p.exists(), "a verified file must be kept");
+            let _ = std::fs::remove_file(&p);
+        }
+
+        #[test]
+        fn test_verify_downloaded_sha256_hash_mismatch_removes_file() {
+            let p = temp_path("dl_badhash");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::Sha256("00".repeat(32)),
+                size: CONTENT_LEN,
+            };
+            // Even though we pass the real hash as "actual", it disagrees with
+            // the (wrong) expected digest, simulating a tampered download.
+            let res = verify_downloaded_sha256(&p, CONTENT_SHA256, &expected);
+            assert!(res.is_err());
+            assert!(!p.exists(), "a tampered file must be removed");
+        }
+
+        #[test]
+        fn test_verify_downloaded_sha256_size_mismatch_removes_file() {
+            let p = temp_path("dl_badsize");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::Sha256(CONTENT_SHA256.to_string()),
+                size: CONTENT_LEN + 100, // wrong size
+            };
+            let res = verify_downloaded_sha256(&p, CONTENT_SHA256, &expected);
+            assert!(res.is_err());
+            assert!(!p.exists(), "a size-mismatched file must be removed");
+        }
+
+        #[test]
+        fn test_verify_file_sha256_success() {
+            let p = temp_path("vf_sha256");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::Sha256(CONTENT_SHA256.to_string()),
+                size: CONTENT_LEN,
+            };
+            assert!(verify_file(&p, &expected).is_ok());
+            assert!(p.exists());
+            let _ = std::fs::remove_file(&p);
+        }
+
+        #[test]
+        fn test_verify_file_git_blob_sha1_success() {
+            // Mirrors the non-LFS (e.g. tokenizer.json) verification path.
+            let p = temp_path("vf_gitblob");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::GitBlobSha1(CONTENT_GIT_BLOB_SHA1.to_string()),
+                size: CONTENT_LEN,
+            };
+            assert!(verify_file(&p, &expected).is_ok());
+            assert!(p.exists());
+            let _ = std::fs::remove_file(&p);
+        }
+
+        #[test]
+        fn test_verify_file_git_blob_sha1_mismatch_removes_file() {
+            let p = temp_path("vf_gitblob_bad");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::GitBlobSha1("0".repeat(40)),
+                size: CONTENT_LEN,
+            };
+            let res = verify_file(&p, &expected);
+            assert!(res.is_err());
+            assert!(!p.exists(), "a tampered non-LFS file must be removed");
+        }
+
+        #[test]
+        fn test_verify_downloaded_sha256_recomputes_for_non_lfs_digest() {
+            // When HF publishes a git-blob digest but the caller streamed a
+            // SHA256, verification must recompute the correct hash from disk
+            // rather than trust the (wrong-algorithm) precomputed value.
+            let p = temp_path("dl_fallback");
+            write_content(&p);
+            let expected = ExpectedIntegrity {
+                digest: ExpectedDigest::GitBlobSha1(CONTENT_GIT_BLOB_SHA1.to_string()),
+                size: CONTENT_LEN,
+            };
+            // Pass a bogus sha256; it must be ignored in favor of the on-disk
+            // git-blob hash, which matches.
+            assert!(verify_downloaded_sha256(&p, "deadbeef", &expected).is_ok());
+            assert!(p.exists());
+            let _ = std::fs::remove_file(&p);
+        }
+    }
 }

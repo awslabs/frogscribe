@@ -216,17 +216,24 @@ async fn download_with_progress(model_name: &str) -> Result<()> {
     );
 
     let client = reqwest::Client::new();
+
+    // Fetch the authoritative SHA256 from Hugging Face before downloading.
+    let expected = crate::model_integrity::fetch_expected_for_url(&client, &url).await?;
+
     let response = client.get(&url).send().await?;
-    let total = response.content_length().unwrap_or(0);
+    let total = response.content_length().unwrap_or(expected.size);
 
     let mut file = std::fs::File::create(&dest)?;
     let mut downloaded: u64 = 0;
     let mut stream = response.bytes_stream();
     let mut last_pct = 0u64;
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
         file.write_all(&chunk)?;
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
 
         if total > 0 {
@@ -239,6 +246,13 @@ async fn download_with_progress(model_name: &str) -> Result<()> {
         }
     }
     println!();
+
+    file.flush()?;
+    drop(file);
+
+    // Verify integrity against the checksum published by Hugging Face.
+    let actual = format!("{:x}", hasher.finalize());
+    crate::model_integrity::verify_downloaded_sha256(&dest, &actual, &expected)?;
 
     Ok(())
 }

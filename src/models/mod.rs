@@ -53,11 +53,19 @@ pub async fn download_model(model: &WhisperModel, on_progress: impl Fn(f64)) -> 
     );
 
     let client = reqwest::Client::new();
+
+    // Fetch the authoritative SHA256 from Hugging Face before downloading, so we
+    // fail fast if the model is unavailable and can verify what we receive.
+    let expected = crate::model_integrity::fetch_expected_for_url(&client, &url)
+        .await
+        .context("Failed to fetch expected model checksum from Hugging Face")?;
+
     let response = client.get(&url).send().await.context("Failed to start download")?;
-    let total = response.content_length().unwrap_or(model.size_bytes);
+    let total = response.content_length().unwrap_or(expected.size);
 
     let mut file = std::fs::File::create(&dest)?;
     let mut downloaded: u64 = 0;
+    let mut hasher = Sha256::new();
 
     use futures::StreamExt;
     use std::io::Write;
@@ -66,9 +74,17 @@ pub async fn download_model(model: &WhisperModel, on_progress: impl Fn(f64)) -> 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.context("Download interrupted")?;
         file.write_all(&chunk)?;
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
         on_progress(downloaded as f64 / total as f64);
     }
+    file.flush()?;
+    drop(file);
+
+    // Verify integrity against the checksum published by Hugging Face. On any
+    // mismatch the partial/tampered file is removed and an error is returned.
+    let actual = format!("{:x}", hasher.finalize());
+    crate::model_integrity::verify_downloaded_sha256(&dest, &actual, &expected)?;
 
     on_progress(1.0);
     Ok(dest)
