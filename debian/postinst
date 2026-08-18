@@ -11,12 +11,21 @@ if [ "$1" = "configure" ]; then
         fi
     fi
 
-    # Install ydotoold systemd service if not already present
-    if [ ! -f /etc/systemd/system/ydotoold.service ] && [ ! -f /usr/lib/systemd/system/ydotoold.service ]; then
-        cp /usr/share/frogscribe/ydotoold.service /etc/systemd/system/ydotoold.service
-        systemctl daemon-reload
-        systemctl enable ydotoold.service
+    # Migrate away from any previous *system* ydotoold service. It used a
+    # world-writable /tmp socket (0666), which let any local process inject
+    # synthetic input — see T3 in the threat model. Remove it and its drop-in.
+    if [ -f /etc/systemd/system/ydotoold.service ]; then
+        systemctl disable --now ydotoold.service 2>/dev/null || true
+        rm -f /etc/systemd/system/ydotoold.service
     fi
+    rm -f /etc/systemd/system/ydotool.service.d/socket-perms.conf \
+          /usr/lib/systemd/system/ydotool.service.d/socket-perms.conf
+    rm -f /tmp/.ydotool_socket
+    systemctl daemon-reload 2>/dev/null || true
+
+    # Enable the per-user ydotoold service for all users. Its socket lives in
+    # $XDG_RUNTIME_DIR with 0600 perms (user-private). Starts at next login.
+    systemctl --global enable ydotoold.service 2>/dev/null || true
 
     # Ensure uinput module is loaded (required by ydotoold)
     if ! lsmod | grep -q uinput; then
@@ -30,9 +39,7 @@ if [ "$1" = "configure" ]; then
     udevadm control --reload-rules && udevadm trigger
     echo "frogscribe: udev rules reloaded for /dev/uinput"
 
-    # Start/restart ydotoold
-    systemctl restart ydotoold.service 2>/dev/null || true
-    echo "frogscribe: ydotoold service configured and started"
+    echo "frogscribe: ydotoold runs as a per-user service; it will start at your next login."
 fi
 
 #DEBHELPER#

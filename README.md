@@ -44,7 +44,7 @@ Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, s
 - Rust 1.85+ (for building from source)
 - Linux with PulseAudio or PipeWire
 - GNOME Shell 45+ (for the panel extension)
-- `ydotool` for text insertion (system service with socket permissions)
+- `ydotool` for text insertion (runs as a per-user `ydotoold` service with a private socket in `$XDG_RUNTIME_DIR`)
 - `ffmpeg` for CLI audio file transcription
 - `notify-send` for desktop notifications
 - `gtk-layer-shell` for Wayland overlay support

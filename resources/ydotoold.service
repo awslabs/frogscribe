@@ -1,11 +1,16 @@
 [Unit]
-Description=ydotool automation daemon
-After=multi-user.target
+Description=ydotool automation daemon (per-user)
+After=default.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/ydotoold --socket-path=/tmp/.ydotool_socket --socket-perm=0666
+# Run as the user's own service. The socket lives in the user runtime dir
+# (%t = $XDG_RUNTIME_DIR, a 0700 user-owned directory) with 0600 permissions,
+# so only this user can connect to the input-injection socket. Do NOT use a
+# world-accessible path (e.g. /tmp) or world-writable perms (0666) — see T3 in
+# docs/THREAT_MODEL.md.
+ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-perm=0600
 Restart=always
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

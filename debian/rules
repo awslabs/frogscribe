@@ -17,8 +17,7 @@ override_dh_auto_install:
 	install -Dm644 gnome-extension/extension.js debian/frogscribe/usr/share/gnome-shell/extensions/frogscribe@frogscribe.app/extension.js
 	install -Dm644 gnome-extension/stylesheet.css debian/frogscribe/usr/share/gnome-shell/extensions/frogscribe@frogscribe.app/stylesheet.css
 	install -Dm644 resources/frogscribe-symbolic.svg debian/frogscribe/usr/share/gnome-shell/extensions/frogscribe@frogscribe.app/frogscribe-symbolic.svg
-	install -Dm644 resources/ydotool-socket-perms.conf debian/frogscribe/usr/lib/systemd/system/ydotool.service.d/socket-perms.conf
-	install -Dm644 resources/ydotoold.service debian/frogscribe/usr/share/frogscribe/ydotoold.service
+	install -Dm644 resources/ydotoold.service debian/frogscribe/usr/lib/systemd/user/ydotoold.service
 	install -Dm644 resources/80-uinput.rules debian/frogscribe/etc/udev/rules.d/80-uinput.rules
 
 override_dh_auto_test:

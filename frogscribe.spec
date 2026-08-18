@@ -60,7 +60,7 @@ install -Dm644 gnome-extension/metadata.json %{buildroot}%{_datadir}/gnome-shell
 install -Dm644 gnome-extension/extension.js %{buildroot}%{_datadir}/gnome-shell/extensions/frogscribe@frogscribe.app/extension.js
 install -Dm644 gnome-extension/stylesheet.css %{buildroot}%{_datadir}/gnome-shell/extensions/frogscribe@frogscribe.app/stylesheet.css
 install -Dm644 resources/frogscribe-symbolic.svg %{buildroot}%{_datadir}/gnome-shell/extensions/frogscribe@frogscribe.app/frogscribe-symbolic.svg
-install -Dm644 resources/ydotool-socket-perms.conf %{buildroot}%{_unitdir}/ydotool.service.d/socket-perms.conf
+install -Dm644 resources/ydotoold.service %{buildroot}%{_userunitdir}/ydotoold.service
 
 %files
 %license README.md
@@ -69,7 +69,19 @@ install -Dm644 resources/ydotool-socket-perms.conf %{buildroot}%{_unitdir}/ydoto
 %{_datadir}/icons/hicolor/48x48/apps/frogscribe.png
 %{_datadir}/icons/hicolor/128x128/apps/frogscribe.png
 %{_datadir}/gnome-shell/extensions/frogscribe@frogscribe.app/
-%{_unitdir}/ydotool.service.d/socket-perms.conf
+%{_userunitdir}/ydotoold.service
+
+%post
+# ydotoold runs as a per-user service; its socket lives in $XDG_RUNTIME_DIR
+# with 0600 perms (user-private). Enable it for all users (starts at login).
+# Any legacy world-writable /tmp socket drop-in shipped by older packages is
+# removed automatically by RPM on upgrade (no longer in the file list).
+systemctl --global enable ydotoold.service >/dev/null 2>&1 || :
+
+%postun
+if [ $1 -eq 0 ]; then
+    systemctl --global disable ydotoold.service >/dev/null 2>&1 || :
+fi
 
 %changelog
 * Mon Jul 27 2026 Tom Callaway <spotaws@amazon.com> - 0.2.1-1

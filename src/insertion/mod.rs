@@ -5,23 +5,24 @@ use std::process::Command;
 use std::time::Duration;
 
 /// Resolve the ydotoold socket path.
-/// Prefers: $YDOTOOL_SOCKET → user service socket → /tmp/.ydotool_socket
+///
+/// Only user-private locations are trusted: an explicit `$YDOTOOL_SOCKET`, or
+/// the per-user socket in `$XDG_RUNTIME_DIR` (a 0700 user-owned directory). We
+/// deliberately do NOT fall back to a world-accessible path such as
+/// `/tmp/.ydotool_socket`: a world-writable input-injection socket can be
+/// squatted or hijacked by any local process (see T3 in docs/THREAT_MODEL.md).
 fn ydotool_socket_path() -> Option<String> {
     if let Ok(path) = std::env::var("YDOTOOL_SOCKET") {
         if std::path::Path::new(&path).exists() {
             return Some(path);
         }
     }
-    // User service socket (preferred — no permission issues)
+    // Per-user socket in the user runtime dir (the only path we create).
     if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
         let user_path = format!("{}/.ydotool_socket", runtime_dir);
         if std::path::Path::new(&user_path).exists() {
             return Some(user_path);
         }
-    }
-    // System service socket (often has permission issues)
-    if std::path::Path::new("/tmp/.ydotool_socket").exists() {
-        return Some("/tmp/.ydotool_socket".to_string());
     }
     None
 }
@@ -52,7 +53,7 @@ pub fn check_ydotool() -> Result<(), String> {
         Some(s) => s,
         None => {
             return Err(
-                "ydotoold is not running. Fix: sudo systemctl enable --now ydotool".into()
+                "ydotoold is not running. Fix: systemctl --user enable --now ydotoold".into()
             );
         }
     };
@@ -72,9 +73,10 @@ pub fn check_ydotool() -> Result<(), String> {
             );
             if combined.contains("Permission denied") {
                 return Err(format!(
-                    "ydotool socket ({}) not accessible. \
-                     Fix: sudo chmod 0666 {}",
-                    socket, socket
+                    "ydotool socket ({}) not accessible. It should be your \
+                     per-user socket in $XDG_RUNTIME_DIR. Fix: \
+                     systemctl --user restart ydotoold",
+                    socket
                 ));
             }
             // Any other error (including "invalid key") means the socket works

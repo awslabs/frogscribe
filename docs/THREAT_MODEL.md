@@ -88,7 +88,7 @@ FrogScribe is a voice dictation application for Linux GNOME desktops. It capture
 │                                                                     │
 │  /dev/uinput          - synthetic input device                      │
 │  /dev/input/event*    - keyboard devices (read by evdev)            │
-│  /tmp/.ydotool_socket - ydotoold communication socket               │
+│  $XDG_RUNTIME_DIR/.ydotool_socket - ydotoold socket (user-private, 0600) │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -229,16 +229,17 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 **Residual risk:** The daemon is on the session bus, which is shared by all processes of the current user. The UID check is non-spoofable and blocks other users, but it cannot distinguish a *malicious process running as the same user* — such a process is inside the trust boundary by definition on a session bus (the same limitation applies to other GNOME session services). Fully isolating same-user peers would require moving control off the shared session bus onto a private, filesystem-permission-restricted socket; even then, a same-UID attacker could open that socket, so it raises the bar rather than closing the gap. Tracked as future work.
 
-### T3: ydotool Socket Hijacking
-**STRIDE:** Tampering, Information Disclosure
-**Description:** `/tmp/.ydotool_socket` is in a world-writable directory. A local attacker could race to create a malicious socket before ydotoold, intercepting all text insertion.
-**Likelihood:** Low (requires local access + timing)
-**Impact:** High (keystroke interception, input injection)
+### T3: ydotool Socket Exposure / Input Injection
+**STRIDE:** Tampering, Information Disclosure, Elevation of Privilege
+**Description:** ydotoold exposes a control socket that injects synthetic input (keystrokes/mouse) via `/dev/uinput`. If that socket is world-accessible, any local process can `connect()` to it and inject arbitrary input into the session, or squat the path to intercept insertion. No race or timing is required — a plain `connect()` suffices.
+**Likelihood:** High (any local process can connect to a world-writable socket)
+**Impact:** High (arbitrary keystroke/input injection; interception of inserted text)
 **Mitigation implemented:**
-- Socket permissions set to 0666 via systemd ExecStartPost
-- Prefer `XDG_RUNTIME_DIR` socket path when available
+- ydotoold runs as a **per-user** systemd service with its socket in `$XDG_RUNTIME_DIR` (a 0700 user-owned directory), created with `--socket-perm=0600` — only the owning user can open it
+- The previous world-writable configuration was removed entirely: the `/tmp/.ydotool_socket` path, the `--socket-perm=0666` flag, and the systemd drop-in that chmod'd the socket to 0666 are all gone. Package upgrades disable/remove any pre-existing *system* ydotoold service and delete the stale `/tmp` socket
+- The daemon no longer falls back to a world-accessible socket path: it only uses `$YDOTOOL_SOCKET` or the per-user `$XDG_RUNTIME_DIR` socket, so it cannot be tricked into using a squatted world-writable socket
 
-**Residual risk:** The `/tmp` socket path is inherently race-prone. Ideal fix would be moving socket to `/run/ydotool/` with restricted ownership.
+**Residual risk:** A process running as the same user can still connect to the per-user socket — inherent to a user-owned IPC endpoint, and the same trust-boundary limitation as T2. This is the intended boundary: input injection is scoped to the user's own processes rather than any local user. (Note: the earlier "0666 via ExecStartPost" line was itself the vulnerability, not a mitigation.)
 
 ### T4: Input Group Keylogging
 **STRIDE:** Information Disclosure
@@ -330,7 +331,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T1 | Control character sanitization | ✅ Implemented |
 | T1 | Window picker (user confirms target) | ✅ Implemented (default on) |
 | T2 | D-Bus caller authorization by UID (same-user only) | ✅ Implemented |
-| T3 | Socket permissions via systemd drop-in | ✅ Implemented |
+| T3 | Per-user ydotoold socket in `$XDG_RUNTIME_DIR` (0600); removed world-writable `/tmp` socket | ✅ Implemented |
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
 | T6 | Opt-in storage (history/auto-save off by default) | ✅ Implemented |
 | T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
@@ -348,7 +349,6 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 | Priority | Improvement |
 |----------|-------------|
-| Medium | Move ydotool socket to `XDG_RUNTIME_DIR` by default |
 | Low | Pin model downloads to a specific Hugging Face commit revision |
 | Low | Add optional encryption-at-rest for transcription history |
 | Low | Implement D-Bus rate limiting |
