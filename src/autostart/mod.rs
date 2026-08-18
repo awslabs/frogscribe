@@ -17,7 +17,7 @@ X-GNOME-Autostart-enabled=true
 
 fn autostart_path() -> PathBuf {
     dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .expect("cannot determine config directory: set $HOME or $XDG_CONFIG_HOME")
         .join("autostart")
         .join("frogscribe.desktop")
 }

@@ -217,7 +217,7 @@ impl Default for Settings {
 impl Settings {
     pub fn config_path() -> PathBuf {
         dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("~/.config"))
+            .expect("cannot determine config directory: set $HOME or $XDG_CONFIG_HOME")
             .join("frogscribe")
             .join("settings.toml")
     }
@@ -246,7 +246,7 @@ impl Settings {
 
     pub fn data_dir() -> PathBuf {
         dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("~/.local/share"))
+            .expect("cannot determine data directory: set $HOME or $XDG_DATA_HOME")
             .join("frogscribe")
     }
 

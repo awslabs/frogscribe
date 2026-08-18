@@ -544,7 +544,11 @@ struct TranscriptionContext {
 }
 
 fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &TranscriptionContext) -> Option<String> {
-    let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/transcriptions");
+    let Some(home) = dirs::home_dir() else {
+        tracing::warn!("Cannot determine home directory; skipping transcript auto-save");
+        return None;
+    };
+    let dir = home.join(".frogscribe/transcriptions");
     if std::fs::create_dir_all(&dir).is_err() { return None; }
     let dt = glib::DateTime::now_local()
         .and_then(|d| d.format("%Y%m%d-%H%M%S"))
@@ -657,7 +661,11 @@ async fn handle_stop_recording(
                                 match summarization::summarize(&text_for_summary, &model) {
                                     Ok(summary) if !summary.is_empty() => {
                                         tracing::info!("Summary generated ({} chars)", summary.len());
-                                        let dir = dirs::home_dir().unwrap_or_default().join(".frogscribe/summaries");
+                                        let Some(home) = dirs::home_dir() else {
+                                            tracing::warn!("Cannot determine home directory; skipping summary save");
+                                            return;
+                                        };
+                                        let dir = home.join(".frogscribe/summaries");
                                         if std::fs::create_dir_all(&dir).is_ok() {
                                             let path = dir.join(format!("summary-{}.txt", dt));
                                             let _ = std::fs::write(&path, &summary);
