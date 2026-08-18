@@ -21,7 +21,7 @@ Build-Depends: debhelper (>= 13),
                glslc,
                libspirvheaders-dev
 Standards-Version: 4.6.2
-Homepage: https://github.com/user/frogscribe
+Homepage: https://github.com/awslabs/frogscribe
 
 Package: frogscribe
 Architecture: amd64
