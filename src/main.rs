@@ -284,7 +284,7 @@ async fn run_daemon(event_tx: tokio::sync::mpsc::Sender<AppEvent>, mut event_rx:
                     ear_protection::deactivate();
                     dbus::emit_status(&dbus_conn, "idle").await;
                     handle_stop_recording(
-                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, "frogscribe",
+                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, "frogscribe", &dbus_conn,
                                         ).await;
                 } else {
                     settings = settings::Settings::load().unwrap_or(settings);
@@ -342,7 +342,7 @@ async fn run_daemon(event_tx: tokio::sync::mpsc::Sender<AppEvent>, mut event_rx:
                     ear_protection::deactivate();
                     dbus::emit_status(&dbus_conn, "idle").await;
                     handle_stop_recording(
-                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, "frogscribe",
+                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, "frogscribe", &dbus_conn,
                                         ).await;
                 }
             }
@@ -498,7 +498,7 @@ async fn run_daemon(event_tx: tokio::sync::mpsc::Sender<AppEvent>, mut event_rx:
                     let streaming_text = stop_streaming(&mut streaming_stop).await;
                     let source = format!("auto:{}", auto_trigger_app);
                     handle_stop_recording(
-                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, &source,
+                                            &mut recorder, &engine, &settings, &mut history_store, streaming_text, &source, &dbus_conn,
                                         ).await;
                     // Re-arm: if mic is still in use by another app, restart after cooldown
                     if settings.auto_transcription.enabled {
@@ -597,6 +597,7 @@ async fn handle_stop_recording(
     history_store: &mut history::HistoryStore,
     streaming_text: Option<String>,
     source: &str,
+    conn: &zbus::Connection,
 ) {
     tracing::info!("Recording stopped");
     match recorder.stop() {
@@ -635,6 +636,7 @@ async fn handle_stop_recording(
                     let refined_bg = refined.clone();
                     let settings_bg = settings.clone();
                     let source_bg = source.clone();
+                    let conn_bg = conn.clone();
                     let duration = audio_data.duration_secs;
 
                     tokio::spawn(async move {
@@ -682,23 +684,19 @@ async fn handle_stop_recording(
                         // Paste into target window
                         if settings_bg.general.auto_paste {
                             if settings_bg.general.use_window_picker {
-                                let text_for_picker = refined_bg.clone();
-                                let auto_submit = settings_bg.general.auto_submit;
-                                tokio::task::spawn_blocking(move || {
-                                    if let Some(win_id) = window_picker::show_picker(&text_for_picker) {
-                                        window_picker::activate_window(&win_id);
-                                        std::thread::sleep(std::time::Duration::from_millis(300));
-                                        let rt = tokio::runtime::Handle::current();
-                                        rt.block_on(async {
-                                            if let Err(e) = insertion::insert_text(&text_for_picker).await {
-                                                tracing::error!("Insertion error: {}", e);
-                                            }
-                                            if auto_submit {
-                                                let _ = insertion::press_enter().await;
-                                            }
-                                        });
+                                // Picker + activation go over the daemon's own
+                                // D-Bus connection so the extension authorizes us
+                                // as the owner of com.frogscribe.Daemon (see H2).
+                                if let Some(win_id) = window_picker::show_picker(&conn_bg).await {
+                                    window_picker::activate_window(&conn_bg, &win_id).await;
+                                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                                    if let Err(e) = insertion::insert_text(&refined_bg).await {
+                                        tracing::error!("Insertion error: {}", e);
                                     }
-                                }).await.ok();
+                                    if settings_bg.general.auto_submit {
+                                        let _ = insertion::press_enter().await;
+                                    }
+                                }
                             } else {
                                 if let Err(e) = insertion::insert_text(&refined_bg).await {
                                     tracing::error!("Insertion error: {}", e);

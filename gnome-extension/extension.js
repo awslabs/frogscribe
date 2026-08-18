@@ -9,6 +9,34 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
+// --- Authorization for the org.frogscribe.Windows D-Bus interface ---
+// Only the process that currently owns the daemon's well-known name
+// (com.frogscribe.Daemon) may call List/Activate/GetThumbnails. The daemon
+// invokes these over its own connection (which owns that name), so legitimate
+// calls pass; any other session-bus process — including a malicious same-user
+// process — is rejected. See H2 in the threat model.
+const DAEMON_WELL_KNOWN_NAME = 'com.frogscribe.Daemon';
+
+function _isAuthorizedCaller(connection, sender) {
+    try {
+        const reply = connection.call_sync(
+            'org.freedesktop.DBus',
+            '/org/freedesktop/DBus',
+            'org.freedesktop.DBus',
+            'GetNameOwner',
+            new GLib.Variant('(s)', [DAEMON_WELL_KNOWN_NAME]),
+            new GLib.VariantType('(s)'),
+            Gio.DBusCallFlags.NONE,
+            -1,
+            null);
+        const owner = reply.get_child_value(0).get_string()[0];
+        return sender !== null && sender === owner;
+    } catch (_e) {
+        // Name unowned (daemon not running) or lookup failed -> deny.
+        return false;
+    }
+}
+
 const DBUS_NAME = 'com.frogscribe.Daemon';
 const DBUS_PATH = '/com/frogscribe/Daemon';
 const DBUS_IFACE = `
@@ -569,6 +597,14 @@ export default class FrogScribeExtension extends Extension {
                 </node>
             `).interfaces[0],
             (connection, sender, path, iface, method, params, invocation) => {
+                // Reject callers that are not the same local user as the shell.
+                if (!_isAuthorizedCaller(connection, sender)) {
+                    invocation.return_error_literal(
+                        Gio.DBusError.quark(),
+                        Gio.DBusError.ACCESS_DENIED,
+                        'org.frogscribe.Windows: caller not authorized');
+                    return;
+                }
                 if (method === 'List') {
                     const windows = [];
                     for (const actor of global.get_window_actors()) {

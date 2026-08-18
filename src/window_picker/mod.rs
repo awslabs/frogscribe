@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(dead_code)]
-//! Window picker: queries the GNOME extension for open windows,
-//! shows a GTK dialog for the user to pick a target, then activates
+//! Window picker: queries the GNOME extension for open windows, shows a
+//! compositor-native picker for the user to choose a target, then activates
 //! that window and pastes.
+//!
+//! All calls go over the daemon's own D-Bus connection — the one that owns
+//! `com.frogscribe.Daemon` — rather than `gdbus` subprocesses, so the extension
+//! can authorize us by well-known name owner (see H2 in docs/THREAT_MODEL.md).
 
-use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use zbus::Connection;
+
+const WIN_DEST: &str = "org.frogscribe.Windows";
+const WIN_PATH: &str = "/org/frogscribe/Windows";
+const WIN_IFACE: &str = "org.frogscribe.Windows";
 
 /// Window entry from the extension
 #[derive(Debug, Clone)]
@@ -15,62 +23,48 @@ pub struct WindowEntry {
     pub wm_class: String,
 }
 
-/// Query the extension for the list of open windows
-pub fn get_windows() -> Vec<WindowEntry> {
-    let output = Command::new("gdbus")
-        .args(["call", "--session", "--dest", "org.frogscribe.Windows",
-               "--object-path", "/org/frogscribe/Windows",
-               "--method", "org.frogscribe.Windows.List"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let raw = String::from_utf8_lossy(&o.stdout);
-            // gdbus wraps in ('...',) — extract the JSON string
-            let json_str = raw.trim()
-                .trim_start_matches("('")
-                .trim_end_matches("',)")
-                .trim_end_matches("')");
-            parse_window_list(json_str)
+/// Call a no-argument `org.frogscribe.Windows` method that returns a single string.
+async fn call_string(conn: &Connection, method: &str) -> Option<String> {
+    match conn
+        .call_method(Some(WIN_DEST), WIN_PATH, Some(WIN_IFACE), method, &())
+        .await
+    {
+        Ok(msg) => msg.body().deserialize::<String>().ok(),
+        Err(e) => {
+            tracing::warn!("org.frogscribe.Windows.{} failed: {}", method, e);
+            None
         }
-        _ => Vec::new(),
     }
 }
 
-/// Request thumbnails from the extension, returns map of window_id -> filepath
-pub fn get_thumbnails() -> std::collections::HashMap<String, String> {
-    let output = Command::new("gdbus")
-        .args(["call", "--session", "--dest", "org.frogscribe.Windows",
-               "--object-path", "/org/frogscribe/Windows",
-               "--method", "org.frogscribe.Windows.GetThumbnails"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let raw = String::from_utf8_lossy(&o.stdout);
-            let json_str = raw.trim()
-                .trim_start_matches("('")
-                .trim_end_matches("',)")
-                .trim_end_matches("')");
-            serde_json::from_str(json_str).unwrap_or_default()
-        }
-        _ => std::collections::HashMap::new(),
+/// Query the extension for the list of open windows.
+pub async fn get_windows(conn: &Connection) -> Vec<WindowEntry> {
+    match call_string(conn, "List").await {
+        Some(json) => parse_window_list(&json),
+        None => Vec::new(),
     }
 }
 
-/// Activate a window by ID
-pub fn activate_window(id: &str) {
-    let _ = Command::new("gdbus")
-        .args(["call", "--session", "--dest", "org.frogscribe.Windows",
-               "--object-path", "/org/frogscribe/Windows",
-               "--method", "org.frogscribe.Windows.Activate", id])
-        .output();
+/// Request thumbnails from the extension, returns map of window_id -> filepath.
+pub async fn get_thumbnails(conn: &Connection) -> HashMap<String, String> {
+    match call_string(conn, "GetThumbnails").await {
+        Some(json) => serde_json::from_str(&json).unwrap_or_default(),
+        None => HashMap::new(),
+    }
+}
+
+/// Activate a window by ID.
+pub async fn activate_window(conn: &Connection, id: &str) {
+    if let Err(e) = conn
+        .call_method(Some(WIN_DEST), WIN_PATH, Some(WIN_IFACE), "Activate", &(id,))
+        .await
+    {
+        tracing::warn!("org.frogscribe.Windows.Activate failed: {}", e);
+    }
 }
 
 fn parse_window_list(json: &str) -> Vec<WindowEntry> {
-    // Simple JSON parsing without serde_json for the window list
     let mut entries = Vec::new();
-    // The JSON is an array of {id, title, wm_class}
     if let Ok(parsed) = serde_json::from_str::<Vec<serde_json::Value>>(json) {
         for item in parsed {
             if let (Some(id), Some(title), Some(wm_class)) = (
@@ -89,27 +83,11 @@ fn parse_window_list(json: &str) -> Vec<WindowEntry> {
     entries
 }
 
-/// Show a GTK window picker dialog. Returns the selected window ID, or None if cancelled.
-/// Runs on the GTK main thread via invoke and uses a channel to return the result.
-pub fn show_picker(_text: &str) -> Option<String> {
-    // The extension shows a compositor-native window picker with live Clutter.Clone previews
-    // and returns the selected window ID via D-Bus
-    let output = Command::new("gdbus")
-        .args(["call", "--session", "--dest", "org.frogscribe.Windows",
-               "--object-path", "/org/frogscribe/Windows",
-               "--method", "org.frogscribe.Windows.GetThumbnails"])
-        .output();
-
-    match output {
-        Ok(o) if o.status.success() => {
-            let raw = String::from_utf8_lossy(&o.stdout);
-            let id = raw.trim()
-                .trim_start_matches("('")
-                .trim_end_matches("',)")
-                .trim_end_matches("')")
-                .to_string();
-            if id.is_empty() { None } else { Some(id) }
-        }
+/// Show the compositor-native window picker (rendered by the extension via
+/// Clutter.Clone) and return the selected window ID, or None if cancelled.
+pub async fn show_picker(conn: &Connection) -> Option<String> {
+    match call_string(conn, "GetThumbnails").await {
+        Some(id) if !id.is_empty() => Some(id),
         _ => None,
     }
 }

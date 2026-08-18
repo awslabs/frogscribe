@@ -292,10 +292,10 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Likelihood:** Medium
 **Impact:** Low (information disclosure to session-local processes)
 **Mitigation implemented:**
-- The D-Bus service is session-scoped (not system bus)
-- Only accessible to processes in the same user session
+- The D-Bus service is session-scoped (not the system bus)
+- All `org.frogscribe.Windows` methods (including `List`) are authorized: only the current owner of `com.frogscribe.Daemon` (the daemon) may call them (see T13), so arbitrary session processes can no longer enumerate window titles
 
-**Residual risk:** Any process in the user session can enumerate window titles. This is consistent with GNOME's own `org.gnome.Shell.Introspect` behavior.
+**Residual risk:** Window titles remain available to the daemon and to GNOME itself (e.g. `org.gnome.Shell.Introspect`); FrogScribe no longer widens that exposure to other session processes.
 
 ### T9: Model Download Integrity
 **STRIDE:** Tampering
@@ -348,6 +348,18 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 **Residual risk:** Other panic paths on the processing pipeline are not exhaustively audited, and no supervisor auto-restarts the daemon after a panic. Remaining risk is loss of availability (a crash), not data integrity or disclosure.
 
+### T13: Unauthenticated Window-Control D-Bus Interface
+**STRIDE:** Elevation of Privilege, Information Disclosure, Denial of Service
+**Description:** The GNOME Shell extension exposes `org.frogscribe.Windows` with `List` (enumerates window titles / wm_class), `Activate` (raises an arbitrary caller-supplied window), and `GetThumbnails` (opens the compositor picker overlay). The handler originally ignored the D-Bus `sender`, so any session-bus process could call all three. `Activate` chained with input injection would be unauthenticated local code execution as the user; `List` leaks window titles; `GetThumbnails` can be called repeatedly to force modal overlays.
+**Likelihood:** Medium
+**Impact:** High (window raising chained to input injection; title disclosure; UI denial of service)
+**Mitigation implemented:**
+- All three methods now authorize the caller: the extension accepts the call only if `sender` equals the current owner of `com.frogscribe.Daemon` (verified via `GetNameOwner`). The daemon invokes them over its own D-Bus connection, which owns that name, so only the daemon is allowed — a same-user process that does not own the name is rejected
+- The daemon no longer calls these via `gdbus` subprocesses (transient connections that could not be identified); it uses its own connection
+- The input-injection half of the `Activate` chain is independently closed: the ydotool socket is per-user `0600` (see T3), so cross-user injection is not possible
+
+**Residual risk:** If the daemon is not running the well-known name is unowned and all calls are denied (fail-closed), so the picker is simply unavailable. A process able to acquire `com.frogscribe.Daemon` while the daemon is down could impersonate it, but that requires the daemon not to hold the name and is a same-user impersonation scenario (see T2).
+
 ---
 
 ## 6. What Are We Going to Do About It?
@@ -364,6 +376,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T6 | Opt-in storage: history and auto-save both off by default | ✅ Implemented |
 | T11 | Auto-transcription off by default; self-filter; visible recording indicator | ✅ Implemented |
 | T12 | Character-boundary-safe text truncation (no byte slicing of transcripts) | ✅ Implemented |
+| T13 | `org.frogscribe.Windows` authorized to the daemon (owner of `com.frogscribe.Daemon`) | ✅ Implemented |
 | T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
 
 ### Accepted Risks
