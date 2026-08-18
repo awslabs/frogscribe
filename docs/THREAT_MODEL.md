@@ -365,6 +365,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 | Priority | Improvement |
 |----------|-------------|
+| Medium | Upgrade `evdev` 0.12 → 0.13.x (outdated; security-sensitive input-device access — see T4) |
 | Low | Pin model downloads to a specific Hugging Face commit revision |
 | Low | Add optional encryption-at-rest for transcription history |
 | Low | Implement D-Bus rate limiting |
