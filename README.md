@@ -261,9 +261,9 @@ gnome-extension/
 
 ## Disclaimer
 
-My employer required that I add a disclaimer on this open source project. After some negotiation, I have compromised, and added this:
-
-"While every effort has been made by the developers of this code to be mindful of security while creating it, it is not possible to write perfect code. You should do your own security review."
+While every effort has been made by the developers of this code to be mindful of security while creating it, it is not possible to write perfect code. You should do your own security review.
+Specifically, before installing, I encourage you to review docs/THREAT_MODEL.md — in particular the accepted risks: input group membership (T4), the same-user trust boundary on the session
+bus and input socket (T2, T3), and newline preservation during text insertion (T1).
 
 ## License
 
