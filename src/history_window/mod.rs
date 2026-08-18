@@ -89,8 +89,13 @@ fn build_history_row(entry: &HistoryEntry) -> ListBoxRow {
     meta_box.append(&dur_label);
     vbox.append(&meta_box);
 
-    // Text
-    let text = if entry.text.len() > 200 { format!("{}…", &entry.text[..200]) } else { entry.text.clone() };
+    // Text (truncate on a UTF-8 char boundary; byte slicing panics mid-character)
+    let text = if entry.text.chars().count() > 200 {
+        let truncated: String = entry.text.chars().take(200).collect();
+        format!("{}…", truncated)
+    } else {
+        entry.text.clone()
+    };
     let text_label = Label::new(Some(&text));
     text_label.set_halign(gtk4::Align::Start);
     text_label.set_wrap(true);

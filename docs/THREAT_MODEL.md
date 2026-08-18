@@ -335,6 +335,17 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 **Residual risk:** While enabled, any local process that opens a mic source can trigger activation; the user sees the indicator but a short window of audio may be captured before they react. Activation keys off app metadata that a local process can spoof, so allow/deny heuristics based on the triggering app are not a strong control.
 
+### T12: Availability — Input-Driven Panics
+**STRIDE:** Denial of Service
+**Description:** FrogScribe processes highly variable transcription text (99+ languages) on its hot path. Unsafe byte-index string slicing (truncating text for notifications or history display) panics when a byte offset falls in the middle of a multi-byte UTF-8 character — routine for CJK, Cyrillic, Greek, or accented Latin text, and reachable in ASCII-adjacent content via em-dashes or curly quotes. `notify_transcription` runs on every completed transcription, so a panic there crashes the daemon.
+**Likelihood:** High (common path for non-English users; not an edge case)
+**Impact:** Medium (daemon crash and loss of the in-flight transcription; availability only)
+**Mitigation implemented:**
+- Display truncation uses character-boundary-safe operations (`chars().take(n)`) instead of byte slicing, in `notifications` and the history window
+- Rust's memory safety bounds the worst case to a clean panic/crash, not memory corruption
+
+**Residual risk:** Other panic paths on the processing pipeline are not exhaustively audited, and no supervisor auto-restarts the daemon after a panic. Remaining risk is loss of availability (a crash), not data integrity or disclosure.
+
 ---
 
 ## 6. What Are We Going to Do About It?
@@ -350,6 +361,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
 | T6 | Opt-in storage: history and auto-save both off by default | ✅ Implemented |
 | T11 | Auto-transcription off by default; self-filter; visible recording indicator | ✅ Implemented |
+| T12 | Character-boundary-safe text truncation (no byte slicing of transcripts) | ✅ Implemented |
 | T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
 
 ### Accepted Risks

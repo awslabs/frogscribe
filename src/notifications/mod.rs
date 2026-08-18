@@ -2,8 +2,11 @@
 use std::process::Command;
 
 pub fn notify_transcription(text: &str) {
-    let body = if text.len() > 100 {
-        format!("{}…", &text[..100])
+    // Truncate on a UTF-8 char boundary (byte slicing panics mid-character,
+    // e.g. for CJK/Cyrillic/accented text — see 99+ supported languages).
+    let body = if text.chars().count() > 100 {
+        let truncated: String = text.chars().take(100).collect();
+        format!("{}…", truncated)
     } else {
         text.to_string()
     };
