@@ -63,7 +63,8 @@ install -Dm644 resources/frogscribe-symbolic.svg %{buildroot}%{_datadir}/gnome-s
 install -Dm644 resources/ydotoold.service %{buildroot}%{_userunitdir}/ydotoold.service
 
 %files
-%license README.md
+%license LICENSE
+%doc README.md
 %{_bindir}/%{name}
 %{_datadir}/applications/%{name}.desktop
 %{_datadir}/icons/hicolor/48x48/apps/frogscribe.png
