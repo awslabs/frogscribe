@@ -134,10 +134,10 @@ User speaks ──▶ parec (mic capture) ──▶ f32 PCM buffer (memory)
 GNOME Extension ──▶ D-Bus session bus ──▶ com.frogscribe.Daemon
                                                 │
                                           [Caller auth check]
-                                          Verify /proc/PID/comm
-                                          matches allowed list:
-                                          gnome-shell, frogscribe,
-                                          gdbus, dbus-send
+                                          GetConnectionUnixUser(caller)
+                                          must equal the daemon's UID
+                                          (same-user only; read-only
+                                          methods are unrestricted)
                                                 │
                                                 ▼
                                           Execute command
@@ -223,11 +223,11 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Likelihood:** Medium
 **Impact:** High (unauthorized recording, text injection)
 **Mitigation implemented:**
-- D-Bus caller authentication via `/proc/PID/comm` verification
-- Only `gnome-shell`, `frogscribe`, `gdbus`, and `dbus-send` are allowed
+- Sensitive D-Bus methods authorize the caller by **UID**: the daemon queries the caller's kernel-reported UID (`GetConnectionUnixUser`) and only accepts callers running as the same user as the daemon
 - Read-only methods (`GetStatus`, `GetAutoTranscriptionEnabled`) remain open
+- Process-name (`/proc/PID/comm`) matching was removed: a name is not an identity — it is spoofable, and legitimate control uses the generic `gdbus`/`dbus-send` tools, so a name allowlist admitted essentially any caller by construction
 
-**Residual risk:** An attacker could rename their binary to `gdbus` to bypass the check. Process name verification is not cryptographically strong.
+**Residual risk:** The daemon is on the session bus, which is shared by all processes of the current user. The UID check is non-spoofable and blocks other users, but it cannot distinguish a *malicious process running as the same user* — such a process is inside the trust boundary by definition on a session bus (the same limitation applies to other GNOME session services). Fully isolating same-user peers would require moving control off the shared session bus onto a private, filesystem-permission-restricted socket; even then, a same-UID attacker could open that socket, so it raises the bar rather than closing the gap. Tracked as future work.
 
 ### T3: ydotool Socket Hijacking
 **STRIDE:** Tampering, Information Disclosure
@@ -315,9 +315,9 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Likelihood:** Low
 **Impact:** Low (user annoyance, CPU usage)
 **Mitigation implemented:**
-- D-Bus caller authentication limits callers to known processes
+- D-Bus caller authorization limits callers to the same user (UID check)
 
-**Residual risk:** No rate limiting. An allowed caller (or one masquerading as `gdbus`) could still flood.
+**Residual risk:** No rate limiting. A same-user caller could still flood.
 
 ---
 
@@ -329,7 +329,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 |--------|-----------|--------|
 | T1 | Control character sanitization | ✅ Implemented |
 | T1 | Window picker (user confirms target) | ✅ Implemented (default on) |
-| T2 | D-Bus caller authentication via /proc/PID/comm | ✅ Implemented |
+| T2 | D-Bus caller authorization by UID (same-user only) | ✅ Implemented |
 | T3 | Socket permissions via systemd drop-in | ✅ Implemented |
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
 | T6 | Opt-in storage (history/auto-save off by default) | ✅ Implemented |
@@ -371,7 +371,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 1. Should we warn users when auto-paste targets a terminal emulator?
 2. Should we add a "sensitive mode" that disables all storage/history for confidential meetings?
-3. Is the `/proc/PID/comm` D-Bus auth check sufficient, or do we need cryptographic peer verification?
+3. Is same-UID D-Bus authorization sufficient, or should sensitive control move to a private permission-restricted socket to reduce the same-user attack surface?
 
 ### Review Cadence
 

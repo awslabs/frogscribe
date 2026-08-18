@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+use std::os::unix::fs::MetadataExt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
@@ -6,34 +7,44 @@ use zbus::{interface, Connection, ConnectionBuilder, SignalContext};
 
 use crate::AppEvent;
 
-/// Allowed caller binaries for sensitive D-Bus methods
-const ALLOWED_CALLERS: &[&str] = &["gnome-shell", "frogscribe", "gdbus", "dbus-send"];
-
 pub struct FrogScribeService {
     tx: mpsc::Sender<AppEvent>,
     status: String,
     pub auto_transcription_paused: Arc<AtomicBool>,
 }
 
-/// Check if a D-Bus caller (by unique bus name) is authorized
+/// The UID this daemon runs as, taken from the owner of `/proc/self`.
+fn own_uid() -> Option<u32> {
+    std::fs::metadata("/proc/self").ok().map(|m| m.uid())
+}
+
+/// Authorize a sensitive D-Bus call.
+///
+/// The daemon lives on the *session* bus, which is shared by every process of
+/// the current user. The only non-spoofable identity D-Bus can give us about a
+/// peer is its UID, provided by the kernel via `GetConnectionUnixUser`, so we
+/// authorize a caller iff it runs as the same user as the daemon.
+///
+/// We deliberately do NOT match on process name (`/proc/PID/comm`): a name is
+/// not an identity — any process can be named `gnome-shell`, and legitimate
+/// callers use the generic `gdbus`/`dbus-send` tools — so a name allowlist
+/// admits (or is spoofed by) essentially any caller. A same-UID process is
+/// inherently inside this trust boundary; see T2 in docs/THREAT_MODEL.md.
 async fn is_authorized(conn: &Connection, sender: &str) -> bool {
+    let our_uid = match own_uid() {
+        Some(uid) => uid,
+        None => return false,
+    };
     let proxy = match zbus::fdo::DBusProxy::new(conn).await {
         Ok(p) => p,
         Err(_) => return false,
     };
-    let pid = match proxy.get_connection_unix_process_id(
-        zbus::names::UniqueName::try_from(sender).unwrap().into()
-    ).await {
-        Ok(p) => p,
+    let name = match zbus::names::BusName::try_from(sender) {
+        Ok(n) => n,
         Err(_) => return false,
     };
-    if pid == 0 { return false; }
-    let comm_path = format!("/proc/{}/comm", pid);
-    match std::fs::read_to_string(&comm_path) {
-        Ok(comm) => {
-            let name = comm.trim();
-            ALLOWED_CALLERS.iter().any(|allowed| name == *allowed)
-        }
+    match proxy.get_connection_unix_user(name).await {
+        Ok(uid) => uid == our_uid,
         Err(_) => false,
     }
 }
