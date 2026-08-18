@@ -269,10 +269,10 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Likelihood:** High (any user-space process can access)
 **Impact:** Medium (meeting transcripts, voice-to-text history)
 **Mitigation implemented:**
-- Files are only stored when user enables history/auto-save features
+- Storage is opt-in: transcription history (`history_enabled`) and auto-save (`auto_save_transcriptions`) are both **off by default**, so nothing is persisted unless the user turns it on
 - Data stored in user-private directories (`~/.config/`, `~/.local/share/`)
 
-**Residual risk:** No encryption at rest. Consider adding optional encryption for sensitive transcription storage.
+**Residual risk:** No encryption at rest once the user enables storage. Consider adding optional encryption for sensitive transcription storage.
 
 ### T7: Settings File Tampering
 **STRIDE:** Tampering
@@ -333,7 +333,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T2 | D-Bus caller authorization by UID (same-user only) | ✅ Implemented |
 | T3 | Per-user ydotoold socket in `$XDG_RUNTIME_DIR` (0600); removed world-writable `/tmp` socket | ✅ Implemented |
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
-| T6 | Opt-in storage (history/auto-save off by default) | ✅ Implemented |
+| T6 | Opt-in storage: history and auto-save both off by default | ✅ Implemented |
 | T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
 
 ### Accepted Risks

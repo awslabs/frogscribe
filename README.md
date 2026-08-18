@@ -161,7 +161,7 @@ auto_submit = false
 auto_paste = true          # insert text into target window
 use_window_picker = true   # show window picker before pasting
 insertion_method = "TypeEveryCharacter"  # or "PasteFullTranscript" or "Off"
-history_enabled = true
+history_enabled = false    # opt-in; transcriptions are not stored until enabled
 auto_save_transcriptions = false
 context_header = true
 
@@ -209,7 +209,7 @@ The model runs with Vulkan GPU acceleration when available (NVIDIA, Intel Arc, A
 
 ## Transcription History
 
-History is stored in `~/.local/share/frogscribe/history.json`.
+History is **off by default** (opt-in). When enabled (`history_enabled = true`), it is stored in `~/.local/share/frogscribe/history.json`.
 
 ## Architecture
 

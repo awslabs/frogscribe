@@ -200,7 +200,7 @@ impl Default for Settings {
             },
             general: GeneralConfig {
                 auto_submit: false,
-                history_enabled: true,
+                history_enabled: false,
                 auto_save_transcriptions: false,
                 context_header: true,
                 rainbow_unlocked: false,
