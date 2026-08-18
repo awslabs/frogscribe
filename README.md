@@ -258,6 +258,12 @@ gnome-extension/
 └── frogscribe-symbolic.svg    # Panel icon
 ```
 
+## Disclaimer
+
+My employer required that I add a disclaimer on this open source project. After some negotiation, I have compromised, and added this:
+
+"While every effort has been made by the developers of this code to be mindful of security while creating it, it is not possible to write perfect code. You should do your own security review."
+
 ## License
 
 Apache-2.0
