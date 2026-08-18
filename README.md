@@ -268,3 +268,20 @@ bus and input socket (T2, T3), and newline preservation during text insertion (T
 ## License
 
 Apache-2.0
+
+## Notes
+
+### What the? Why is this here?
+You might be asking yourself, why did AWS make a Linux GNOME Shell desktop transcription utility? The answer is... one person needed it, me, Tom "spot" Callaway. AWS was kind enough to 
+encourage me to create it, improve it, and then open source it. I hope that it is as useful to you as it has been to me. I would love contributions to it and feedback on how to improve it.
+
+### Isn't AI problematic?
+Sure, but there are lots of cases where it actually works really well. Transcribing voice to text is one of them, summarizing text is another. I wanted to use models that were focused on the need and not use a swiss army knife as a snowboard, which is how it feels to use a very large language model for everything. I also wanted to preserve privacy, which is why these models run on your machine and none of the audio or text involved goes anywhere beyond your machine unless you move it yourself.
+
+### Did you use AI to make FrogScribe?
+I did, I used Kiro, which chose from a number of Claude and OpenAI models, determining the best model for any given part of the work. I did this to help me learn Rust, to solve a problem I had faster than I could on my own, and to end up with a result that is maintainable and reliable. I've looked at the code, structured it in a way that makes sense for human and robot alike, and I don't consider it slop at all. I crafted FrogScribe using tools, like a text editor, a rust compiler, cargo audit, and yes, AI.
+
+And yes, it bothers me that the AI models I used here aren't very open. I desperately want to live in a world where we have high quality coding models which are built from open source code, open weights, and open data, but we're in the middle of an AI gold rush, and those data/shovels are just too valuable to give away.
+
+### Can I submit AI generated changes to FrogScribe?
+Would be a bit hypocritical of me to say no, huh? Yes, but... I need there to be a person on the other end of that issue/pull request. Use AI as a tool, don't abandon your humanity and let it slobber all over my repo.
