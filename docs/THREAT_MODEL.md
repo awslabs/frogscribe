@@ -249,6 +249,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Mitigation implemented:**
 - FrogScribe only reads from devices matching keyboard characteristics
 - No keystrokes are logged or stored — only modifier+trigger combinations are evaluated
+- Package install does not silently grant `input` membership: it explains the capability (read access to all input devices; write access to `/dev/uinput`) and requires the user to opt in explicitly via `usermod -aG input`
 
 **Residual risk:** The `input` group permission is broader than needed. A dedicated approach (e.g., a small privileged helper for hotkey detection) would reduce scope.
 

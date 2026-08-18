@@ -2,13 +2,19 @@
 set -e
 
 if [ "$1" = "configure" ]; then
-    # Add the user who installed the package to the 'input' group for hotkey detection
-    if [ -n "$SUDO_USER" ]; then
-        if ! id -nG "$SUDO_USER" | grep -qw input; then
-            usermod -aG input "$SUDO_USER"
-            echo "frogscribe: Added $SUDO_USER to 'input' group (needed for global hotkeys)."
-            echo "frogscribe: Please log out and back in for the group change to take effect."
-        fi
+    # Global hotkeys require the installing user to be in the 'input' group
+    # (to read /dev/input/event*). We do NOT grant this automatically: 'input'
+    # membership is a powerful capability — it grants read access to ALL input
+    # devices (system-wide keystroke-capture capability) and, via the bundled
+    # udev rule, write access to /dev/uinput (synthetic input injection), for
+    # every process that user runs. The user must opt in explicitly.
+    if [ -n "$SUDO_USER" ] && ! id -nG "$SUDO_USER" 2>/dev/null | grep -qw input; then
+        echo "frogscribe: Global hotkeys need '$SUDO_USER' in the 'input' group, which is NOT"
+        echo "frogscribe:   granted automatically. WARNING: 'input' membership allows reading"
+        echo "frogscribe:   ALL input devices (system-wide keylogging capability) and writing"
+        echo "frogscribe:   /dev/uinput (input injection). Grant it only if you accept that:"
+        echo "frogscribe:       sudo usermod -aG input $SUDO_USER"
+        echo "frogscribe:   then log out and back in. See T4 in the FrogScribe threat model."
     fi
 
     # Migrate away from any previous *system* ydotoold service. It used a

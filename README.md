@@ -48,7 +48,8 @@ Voice dictation for Linux GNOME, built with **GTK4** and Rust. Press a hotkey, s
 - `ffmpeg` for CLI audio file transcription
 - `notify-send` for desktop notifications
 - `gtk-layer-shell` for Wayland overlay support
-- User in `input` group for global hotkeys: `sudo usermod -aG input $USER`
+- Your user must be in the `input` group for global hotkeys: `sudo usermod -aG input $USER` (then log out and back in).
+  **Security note:** `input` group membership grants read access to *all* input devices (a system-wide keystroke-capture capability) and, via the bundled udev rule, write access to `/dev/uinput` (input injection), for every process that user runs. Install does not grant it automatically — enable it only if you accept that tradeoff. See T4 in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Build
 
