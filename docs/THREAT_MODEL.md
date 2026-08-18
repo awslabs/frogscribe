@@ -298,8 +298,8 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 ### T9: Model Download Integrity
 **STRIDE:** Tampering
 **Description:** Model files (whisper GGML weights and summarization models) are downloaded from Hugging Face over the internet. A MITM attacker, a compromised/poisoned CDN, or a malicious caching proxy could substitute a tampered or corrupted model.
-**Likelihood:** Low (requires MITM on HTTPS connection)
-**Impact:** Medium (corrupted transcription, potential model-level exploits)
+**Likelihood:** Medium (supply-chain: a compromised/poisoned CDN, a caching proxy, or an on-path attacker can substitute a model — "requires MITM on HTTPS" understated this) — reduced to Low in practice by the checksum verification below
+**Impact:** High (a substituted model yields attacker-influenced transcripts/summaries that may then be auto-inserted — see T1 — and untrusted weights are parsed by native whisper.cpp/llama.cpp code)
 **Mitigation implemented:**
 - Downloads use HTTPS (reqwest with TLS)
 - Every downloaded file is verified against the authoritative content digest that Hugging Face publishes via its TLS-protected metadata API (`paths-info`), fetched before the download begins:
@@ -320,6 +320,21 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 
 **Residual risk:** No rate limiting. A same-user caller could still flood.
 
+### T11: Silent Auto-Transcription Activation
+**STRIDE:** Information Disclosure, Spoofing
+**Description:** When auto-transcription is enabled, FrogScribe watches PulseAudio/PipeWire for another application opening a microphone source (`pactl subscribe`) and automatically starts recording — with no explicit user gesture (see the §3.3 data flow). A local application could open a mic source specifically to induce FrogScribe to start recording (surveillance), and the activation decision relies on source-output metadata (app name/PID) that a local process can influence or spoof.
+**Likelihood:** Low (auto-transcription is off by default; requires the user to opt in)
+**Impact:** High (unintended or attacker-induced recording of microphone audio)
+**Mitigation implemented:**
+- Auto-transcription is **off by default** (opt-in)
+- FrogScribe filters out its own process's source-outputs so it does not self-trigger
+- Recording always raises a visible indicator (pill and/or top-bar overlay), so activation is not silent to an attentive user
+- VAD, when enabled (`vad_enabled`, on by default but optional), auto-stops after a configurable silence window (default 30s), bounding how long audio is captured; with VAD off, recording continues until the user stops it
+- The user can pause auto-transcription via the `SetAutoTranscriptionPaused` D-Bus method (now UID-authorized — see T2)
+- Captured audio is held in memory only; it is not written to disk unless history/auto-save is enabled (both off by default — see T6)
+
+**Residual risk:** While enabled, any local process that opens a mic source can trigger activation; the user sees the indicator but a short window of audio may be captured before they react. Activation keys off app metadata that a local process can spoof, so allow/deny heuristics based on the triggering app are not a strong control.
+
 ---
 
 ## 6. What Are We Going to Do About It?
@@ -334,6 +349,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 | T3 | Per-user ydotoold socket in `$XDG_RUNTIME_DIR` (0600); removed world-writable `/tmp` socket | ✅ Implemented |
 | T5 | Default to TypeEveryCharacter mode | ✅ Implemented |
 | T6 | Opt-in storage: history and auto-save both off by default | ✅ Implemented |
+| T11 | Auto-transcription off by default; self-filter; visible recording indicator | ✅ Implemented |
 | T9 | SHA256 / Git-blob digest + size verification of model downloads (Hugging Face API) | ✅ Implemented |
 
 ### Accepted Risks
