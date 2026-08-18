@@ -271,6 +271,7 @@ Transcription complete ──▶ Daemon calls GetThumbnails (gdbus)
 **Impact:** Medium (meeting transcripts, voice-to-text history)
 **Mitigation implemented:**
 - Storage is opt-in: transcription history (`history_enabled`) and auto-save (`auto_save_transcriptions`) are both **off by default**, so nothing is persisted unless the user turns it on
+- Stored transcription data (history, auto-saved transcripts, summaries) is written owner-only (files `0600`, directories `0700`) rather than at the umask default, so it is not world/group-readable
 - Data stored in user-private directories (`~/.config/`, `~/.local/share/`)
 
 **Residual risk:** No encryption at rest once the user enables storage. Consider adding optional encryption for sensitive transcription storage.

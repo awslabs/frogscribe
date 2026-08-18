@@ -60,10 +60,10 @@ impl HistoryStore {
 
     fn save(&self) -> Result<()> {
         if let Some(parent) = self.path.parent() {
-            std::fs::create_dir_all(parent)?;
+            Settings::ensure_private_dir(parent)?;
         }
         let data = serde_json::to_string_pretty(&self.entries)?;
-        std::fs::write(&self.path, data)?;
+        Settings::write_private(&self.path, data.as_bytes())?;
         Ok(())
     }
 }

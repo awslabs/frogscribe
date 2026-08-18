@@ -549,7 +549,7 @@ fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &Tran
         return None;
     };
     let dir = home.join(".frogscribe/transcriptions");
-    if std::fs::create_dir_all(&dir).is_err() { return None; }
+    if settings::Settings::ensure_private_dir(&dir).is_err() { return None; }
     let dt = glib::DateTime::now_local()
         .and_then(|d| d.format("%Y%m%d-%H%M%S"))
         .map(|s| s.to_string())
@@ -570,7 +570,7 @@ fn auto_save_transcription(text: &str, settings: &settings::Settings, ctx: &Tran
         text.to_string()
     };
 
-    if let Err(e) = std::fs::write(&path, &content) {
+    if let Err(e) = settings::Settings::write_private(&path, content.as_bytes()) {
         tracing::error!("Auto-save failed: {}", e);
         None
     } else {
@@ -666,9 +666,9 @@ async fn handle_stop_recording(
                                             return;
                                         };
                                         let dir = home.join(".frogscribe/summaries");
-                                        if std::fs::create_dir_all(&dir).is_ok() {
+                                        if settings::Settings::ensure_private_dir(&dir).is_ok() {
                                             let path = dir.join(format!("summary-{}.txt", dt));
-                                            let _ = std::fs::write(&path, &summary);
+                                            let _ = settings::Settings::write_private(&path, summary.as_bytes());
                                             tracing::info!("Summary saved to {:?}", path);
                                             notifications::notify_transcription("📝 Summary saved");
                                         }

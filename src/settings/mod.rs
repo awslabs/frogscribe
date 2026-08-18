@@ -253,4 +253,30 @@ impl Settings {
     pub fn models_dir() -> PathBuf {
         Self::data_dir().join("models")
     }
+
+    /// Ensure a directory exists and is private to the current user (0700).
+    pub fn ensure_private_dir(dir: &std::path::Path) -> std::io::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::create_dir_all(dir)?;
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
+    }
+
+    /// Write data to a file readable/writable only by the owner (0600),
+    /// creating it if needed and normalizing permissions on pre-existing files.
+    /// Used for transcription-derived data (history, transcripts, summaries)
+    /// so it is never left at the umask default (typically world-readable).
+    pub fn write_private(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        f.write_all(data)?;
+        // Normalize perms in case the file already existed with looser bits.
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
 }
